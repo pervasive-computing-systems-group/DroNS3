@@ -6,22 +6,25 @@ import time
 import subprocess as sp
 from threading import Thread, Event
 import defines
+#TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, make naming convention more descriptive
 
 
-
-
+#TODO: Refactor into passed object
 def init_data_collected():
 	global data_collected
 	data_collected = 0
 
+#TODO: Refactor into an argument
 def setSimulation(sim):
 	global running_sim
 	running_sim = sim
 
+#TODO: Refactor into an argument 
 def pass_vehicle(passed_vehicle):
 	global vehicle
 	vehicle = passed_vehicle
 
+#TODO: Refactor into an argument
 def setPath(mpath):
 	global path
 	path = mpath
@@ -47,7 +50,7 @@ class Command(object):
 	def is_done(self):
 		pass
 
-
+#TODO: Research vehicle.simple_takeoff and other takeoff techniques
 class GainAlt(Command):
 	def __init__(self, target_altitude):
 		self.target_altitude = target_altitude
@@ -67,6 +70,7 @@ class GainAlt(Command):
 		diff = abs(vehicle.location.global_relative_frame.alt - self.target_altitude)
 		return diff < 0.5
 
+#TODO: Refactor data_collected - also what does this even do? Consider if this is even needed or if there is a better way to do this.
 class StartTimer(Command):
 	def __init__(self):
 		global data_collected
@@ -89,7 +93,7 @@ class StopTimer(Command):
 	def is_done(self):
 		return True
 
-
+#TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. Enable tolerance as an optional param
 class WaypointDist(Command):
 	def __init__(self, east, north, up):
 		self.east = east
@@ -107,7 +111,7 @@ class WaypointDist(Command):
 			(vehicle.location.local_frame.down + self.up) ** 2))
 		return target_dist < 0.5
 
-
+#TODO: More accurate commenting and naming. This should be similar to the previous one, just based off of time instead of a tolerance. Probably not the most useful.
 class WaypointTime(Command):
 	def __init__(self, east, north, up, seconds):
 		self.east = east
@@ -124,7 +128,7 @@ class WaypointTime(Command):
 		seconds_elapsed = time.time() - self.time_start 
 		return seconds_elapsed > self.seconds
 
-
+#TODO: Potentially refactor this into a more comprehensive initialization command
 class Idle(Command):
 	def __init__(self, mode):
 		self.mode = mode
@@ -143,7 +147,7 @@ class Idle(Command):
 	def is_done(self):
 		return False
 
-
+#TODO: Refactor to use code from WaypointDist command - no reason to have another one.
 class ReturnHome(Command):
 	def __init__(self, alt):
 		self.east = 0
@@ -161,7 +165,7 @@ class ReturnHome(Command):
 			(vehicle.location.local_frame.down + self.up) ** 2))
 		return target_dist < 0.5
 
-
+#TODO: change land_in_place function - we can have the code inside this object and anything that needs it can access it that way.
 class Land(Command):
 	def __init__(self):
 		pass
@@ -257,6 +261,7 @@ class CollectData(Command):
 		return self.collect_success.is_set()
 
 
+#Refactor both MoveAndCollectData to contain both.
 class MoveAndCollectData(Command):
 	# Attempt to collect data from node, while moving towards the node 
 	# at altitude alt, with node communication range node_range (for simulation)

@@ -11,7 +11,7 @@ import defines
 import math
 
 
-
+#TODO: Remove reliance on global variables
 def setSimulation(sim):
 	global running_sim
 	running_sim = sim
@@ -29,6 +29,7 @@ def setPath(vpath):
 
 #Methods get the Drone number and the orbit set from text files on the drone in order to prevent
 #a lot of overhead when updating scripts.
+#TODO: Determine if we still want smallsat code, potentially refactor to include this in an init function
 def getDroneNumber(drone_number = -1):
 	if running_sim:
 		return 0
@@ -49,7 +50,7 @@ def getDroneNumber(drone_number = -1):
 		print("ERROR: Number not found")
 		return "ERROR: Number not found"
 
-
+#TODO: Refactor as an argument or config file, decide if we need smallsat code
 def getOrbitSet():
 	return 2
 
@@ -59,7 +60,7 @@ def getAodv_hop():
 	file1.readline()
 	return file1.readline().strip()
 
-
+#TODO: Refactor to be passed into the mission
 def pass_vehicle(passed_vehicle):
 	global vehicle
 	vehicle = passed_vehicle
@@ -72,6 +73,7 @@ class Mission(object):
 	thread = None
 	q = deque()
 
+	#TODO: Refactor to include optional global arguments - simulation + any others we want
 	@abc.abstractmethod
 	def __init__(self):
 		pass
@@ -87,6 +89,8 @@ class Mission(object):
 	def update_wrapper(self):
 		self.command.init()
 		
+		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
+		#TODO: more robust failsafe
 		while not self.terminate:
 			if vehicle.mode == VehicleMode('LAND'):
 				self.dispose()
@@ -96,6 +100,7 @@ class Mission(object):
 	# Periodically called to check command status/is-done
 	def update(self):
 		# Verify we haven't gone into land mode
+		#TODO: More robust failsafe
 		if vehicle.mode == VehicleMode('LAND'):
 			self.dispose()
 		# Check current command
@@ -116,6 +121,7 @@ class Mission(object):
 	def dispose(self):
 		self.terminate = True
 
+#TODO: Rename? Name not intuitive
 class Manual(Mission):
 	name = "MANUAL"
 
@@ -132,6 +138,7 @@ class Manual(Mission):
 			self.command_idle.can_idle = True
 		super(Manual, self).update()
 
+#Unsure if we want to include this TODO: Decide if we need this
 class PathTest(Mission):
 	name = "PATH_TEST"
 
@@ -147,6 +154,7 @@ class PathTest(Mission):
 		self.q.append(commands.WaypointDist(-5, 0, 10))
 		self.q.append(commands.WaypointDist(0, 0, 5))
 
+#TODO Determine if we want smallsat code in repo
 class StartPosition(Mission):
 	name = "START_POSITION"
 
@@ -159,6 +167,7 @@ class StartPosition(Mission):
 		# Set first way-point as the current command
 		self.command = commands.WaypointDist(float(values[0]), float(values[1]), float(values[2]))
 
+#TODO Determine if we want smallsat code in repo
 class RunOrbit(Mission):
 	name = "RUN_ORBIT"
 
@@ -174,6 +183,7 @@ class RunOrbit(Mission):
 		# Add first way-point as current command
 		self.command = self.q.popleft()
 
+#TODO: Refactor all CollectWSNData into single mission with an algorithm parameter
 class CollectWSNData(Mission):
 	name = "WSN_DATA"
 	missed_q = deque()
@@ -274,6 +284,7 @@ class CollectWSNData(Mission):
 
 		super(CollectWSNData, self).update()
 
+#TODO: Refactor all CollectWSNData into single mission with an algorithm parameter
 class CollectWSNDataNaive(Mission):
 	name = "WSN_DATA_NAIVE"
 	missed_q = deque()
@@ -374,6 +385,7 @@ class CollectWSNDataNaive(Mission):
 
 		super(CollectWSNDataNaive, self).update()
 
+#TODO: Refactor all CollectWSNData into single mission with an algorithm parameter - This one is still buggy and fails on execution. Either fix or remove
 class CollectWSNDataLKH(Mission):
 	name = "WSN_DATA_LKH"
 	missed_q = deque()
@@ -558,7 +570,8 @@ def getLKHSolution(start, end):
 	
 
 	return path
-
+	
+#TODO: Refactor all CollectWSNData into single mission with an algorithm parameter
 class CollectWSNDataNoSub(Mission):
 	name = "WSN_DATA_NO_SUB"
 	missed_q = deque()
