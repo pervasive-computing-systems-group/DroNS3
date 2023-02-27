@@ -11,7 +11,7 @@ TODO: Overall, refactor command init() function (not the basic __init__() functi
 make naming convention more descriptive (Maybe start() is a better name). 
 We should create a telemetry class to collect and retrieve data from Misisons and Commands that can be passed as an optional argument. 
 We should try to remove all global variables.
-We should try to make all filepaths passed rather than hardcoded 
+We should try to make all filepaths passed rather than hardcoded - or in the defines file for any library. 
 '''
 
 
@@ -46,7 +46,7 @@ class Command(object):
 		pass
 
 	@abc.abstractmethod
-	def init(self):
+	def begin(self):
 		pass
 
 	def update(self):
@@ -61,7 +61,7 @@ class GainAlt(Command):
 	def __init__(self, target_altitude):
 		self.target_altitude = target_altitude
 
-	def init(self):
+	def begin(self):
 		vehicle.mode = VehicleMode('GUIDED')
 
 		if vehicle.location.global_relative_frame.alt < 1:
@@ -83,7 +83,7 @@ class StartTimer(Command):
 		data_collected = 0
 		pass
 
-	def init(self):
+	def begin(self):
 		pass
 
 	def is_done(self):
@@ -93,20 +93,21 @@ class StopTimer(Command):
 	def __init__(self):
 		pass
 
-	def init(self):
+	def begin(self):
 		pass
 
 	def is_done(self):
 		return True
 
-#TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. Enable tolerance as an optional param
+#TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
+# Enable tolerance as an optional param
 class WaypointDist(Command):
 	def __init__(self, east, north, up):
 		self.east = east
 		self.north = north
 		self.up = up
 
-	def init(self):
+	def begin(self):
 		vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 
@@ -125,7 +126,7 @@ class WaypointTime(Command):
 		self.up = up
 		self.seconds = seconds
 
-	def init(self):
+	def begin(self):
 		vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 		self.time_start = time.time()
@@ -141,7 +142,7 @@ class Idle(Command):
 		self.can_idle = True
 		self.is_idle = False
 
-	def init(self):
+	def begin(self):
 		vehicle.mode = VehicleMode('GUIDED')
 
 	def update(self):
@@ -160,7 +161,7 @@ class ReturnHome(Command):
 		self.north = 0
 		self.up = alt
 
-	def init(self):
+	def begin(self):
 		vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 
@@ -176,7 +177,7 @@ class Land(Command):
 	def __init__(self):
 		pass
 
-	def init(self):
+	def begin(self):
 		land_in_place()
 
 	def is_done(self):
@@ -210,7 +211,7 @@ class CollectData(Command):
 		self.collect_complete = Event()
 		self.collect_complete.clear()
 
-	def init(self):
+	def begin(self):
 		# Create thread for comms process
 		if self.node_collect_time is not None:
 			self.thread = Thread(target=self.launchCollection)
@@ -296,7 +297,7 @@ class MoveAndCollectData(Command):
 		self.collect_complete.clear()
 		self.thread = None
 
-	def init(self):
+	def begin(self):
 		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
 		vehicle.mode = VehicleMode('GUIDED')
@@ -400,7 +401,7 @@ class MoveAndCollectDataNaive(Command):
 		self.collect_complete.clear()
 		self.thread = None
 
-	def init(self):
+	def begin(self):
 		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
 		vehicle.mode = VehicleMode('GUIDED')

@@ -10,6 +10,16 @@ import numpy as np
 import defines
 import math
 
+'''
+TODO:
+
+In general replace all global variables with arguments or objects.
+For vehicle, if no argument is passed, initialize the vehicle (look at init() from simulation) in the parent Mission class
+Make all file paths passed rather than hardcoded (maybe exception for LKH stuff or any other library)
+Make general mission that uses a file with a series of commands in it.
+Remove all NS3 calls.
+Create a class that simulates the network communication stuff (The NS3 Stuff).
+'''
 
 #TODO: Remove reliance on global variables
 def setSimulation(sim):
@@ -27,38 +37,6 @@ def setPath(vpath):
 	path = vpath
 	commands.setPath(path)
 
-#Methods get the Drone number and the orbit set from text files on the drone in order to prevent
-#a lot of overhead when updating scripts.
-#TODO: Determine if we still want smallsat code, potentially refactor to include this in an init function
-def getDroneNumber(drone_number = -1):
-	if running_sim:
-		return 0
-	else:
-		file1 = open("/home/pi/smallsat-autopilot/ip_map.txt","r+")
-		if(drone_number == -1):
-			for aline in file1:
-				values = aline.split()
-				if(values[0] == sb.check_output('hostname -I', shell = True).strip()):
-					return values[1].strip()
-		else:
-			for aline in file1:
-				values = aline.split()
-				if((len(values) > 1) and (values[1] == str(drone_number))):
-					print(values[0].strip())
-					return values[0].strip()
-		file1.close()
-		print("ERROR: Number not found")
-		return "ERROR: Number not found"
-
-#TODO: Refactor as an argument or config file, decide if we need smallsat code
-def getOrbitSet():
-	return 2
-
-
-def getAodv_hop():
-	file1 = open("/home/pi/smallsat-autopilot/orbit_set.txt","r+")
-	file1.readline()
-	return file1.readline().strip()
 
 #TODO: Refactor to be passed into the mission
 def pass_vehicle(passed_vehicle):
@@ -87,7 +65,7 @@ class Mission(object):
 
 	# Wrapper function for updating mission if not terminated
 	def update_wrapper(self):
-		self.command.init()
+		self.command.begin()
 		
 		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
 		#TODO: more robust failsafe
@@ -109,7 +87,7 @@ class Mission(object):
 			if self.q:
 				# Run next command
 				self.command = self.q.popleft()
-				self.command.init()
+				self.command.begin()
 			else:
 				# deque is empty
 				self.dispose()
@@ -138,50 +116,7 @@ class Manual(Mission):
 			self.command_idle.can_idle = True
 		super(Manual, self).update()
 
-#Unsure if we want to include this TODO: Decide if we need this
-class PathTest(Mission):
-	name = "PATH_TEST"
 
-	def __init__(self):
-		self.command = commands.GainAlt(5)
-		self.q.append(commands.WaypointTime(0, 0, 10, 5))
-		self.q.append(commands.WaypointTime(0, -10, 10, 10))
-		self.q.append(commands.WaypointTime(-5, -10, 10, 5))
-		self.q.append(commands.WaypointTime(-5, 0, 10, 10))
-		self.q.append(commands.WaypointTime(0, 0, 5, 5))
-		self.q.append(commands.WaypointDist(0, -10, 10))
-		self.q.append(commands.WaypointDist(-5, -10, 10))
-		self.q.append(commands.WaypointDist(-5, 0, 10))
-		self.q.append(commands.WaypointDist(0, 0, 5))
-
-#TODO Determine if we want smallsat code in repo
-class StartPosition(Mission):
-	name = "START_POSITION"
-
-	def __init__(self):
-		# Get first way-point
-		drone_number = str(int(getDroneNumber()) - 1 )
-		file1 = open("/home/pi/smallsat-autopilot/Trans_Orbits/Orbits/" + getOrbitSet() + "/orbit_files/sc" + drone_number + "_wp_orbit.txt","r+")
-		values = file1.readline().split()
-		file1.close()
-		# Set first way-point as the current command
-		self.command = commands.WaypointDist(float(values[0]), float(values[1]), float(values[2]))
-
-#TODO Determine if we want smallsat code in repo
-class RunOrbit(Mission):
-	name = "RUN_ORBIT"
-
-	def __init__(self):
-		# Get all way-point from orbit file
-		drone_number = str(int(getDroneNumber()) - 1 )
-		file1 = open("/home/pi/smallsat-autopilot/Trans_Orbits/Orbits/" + getOrbitSet() + "/orbit_files/sc" + drone_number + "_wp_orbit.txt","r+")
-		for aline in file1:
-			values = aline.split()
-			self.q.append(commands.WaypointTime(float(values[0]), float(values[1]), float(values[2]), float(values[3])))
-		file1.close()
-		self.q.append(commands.Idle('LOITER'))
-		# Add first way-point as current command
-		self.command = self.q.popleft()
 
 #TODO: Refactor all CollectWSNData into single mission with an algorithm parameter
 class CollectWSNData(Mission):
