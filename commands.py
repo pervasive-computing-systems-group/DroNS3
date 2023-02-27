@@ -6,7 +6,13 @@ import time
 import subprocess as sp
 from threading import Thread, Event
 import defines
-#TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, make naming convention more descriptive
+'''
+TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
+make naming convention more descriptive (Maybe start() is a better name). 
+We should create a telemetry class to collect and retrieve data from Misisons and Commands that can be passed as an optional argument. 
+We should try to remove all global variables.
+We should try to make all filepaths passed rather than hardcoded 
+'''
 
 
 #TODO: Refactor into passed object
@@ -14,7 +20,7 @@ def init_data_collected():
 	global data_collected
 	data_collected = 0
 
-#TODO: Refactor into an argument
+#TODO: Refactor into an optional argument
 def setSimulation(sim):
 	global running_sim
 	running_sim = sim
@@ -36,7 +42,7 @@ def get_xy():
 class Command(object):
 	__metaclass__ = abc.ABCMeta
 
-	def __init(self):
+	def __init__(self):
 		pass
 
 	@abc.abstractmethod
@@ -176,7 +182,7 @@ class Land(Command):
 	def is_done(self):
 		return vehicle.location.global_relative_frame.alt < 0.1
 
-
+#TODO: Potentially refactor Collect Data to include MoveAndCollectData
 class CollectData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)
 	def __init__(self, node, power):
@@ -261,7 +267,7 @@ class CollectData(Command):
 		return self.collect_success.is_set()
 
 
-#Refactor both MoveAndCollectData to contain both.
+#TODO: Refactor both MoveAndCollectData to contain both.
 class MoveAndCollectData(Command):
 	# Attempt to collect data from node, while moving towards the node 
 	# at altitude alt, with node communication range node_range (for simulation)
