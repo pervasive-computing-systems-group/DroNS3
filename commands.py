@@ -3,7 +3,7 @@ from dronekit import VehicleMode
 from pymavlink import mavutil
 import math
 import time
-import subprocess as sp
+import subprocess as sb
 from threading import Thread, Event
 import defines
 '''
@@ -118,7 +118,8 @@ class WaypointDist(Command):
 			(vehicle.location.local_frame.down + self.up) ** 2))
 		return target_dist < 0.5
 
-#TODO: More accurate commenting and naming. This should be similar to the previous one, just based off of time instead of a tolerance. Probably not the most useful.
+#TODO: More accurate commenting and naming. This should be similar to the previous one, 
+# just based off of time instead of a tolerance. Probably not the most useful.
 class WaypointTime(Command):
 	def __init__(self, east, north, up, seconds):
 		self.east = east
@@ -232,12 +233,14 @@ class CollectData(Command):
 				(vehicle.location.local_frame.east - self.east) ** 2 + 
 				(vehicle.location.local_frame.down) ** 2))
 			# Collect data using NS3
-			child = sp.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), "--payload=5000000", "--txpower="+str(self.power), "--delay=true"],  stdout=sp.DEVNULL)
+			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
+		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=true"],  stdout=sb.DEVNULL)
 			child.communicate()[0]
 			rc = child.returncode
 		else:
 			# Collect data using collect_data executable
-			child = sp.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), str(self.node_collect_time)], stdout=sp.DEVNULL)
+			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), 
+		     	str(self.node_hostname), str(self.node_collect_time)], stdout=sb.DEVNULL)
 			child.communicate()[0]
 			rc = child.returncode
 
@@ -339,12 +342,14 @@ class MoveAndCollectData(Command):
 				(vehicle.location.local_frame.east - self.east) ** 2 + 
 				(vehicle.location.local_frame.down) ** 2))
 			# Attempt to contact node using NS3, disable delay, set data to 1 byte
-			child = sp.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), "--payload=5000000", "--txpower="+str(self.power), "--delay=false"], stdout=sp.DEVNULL)
+			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
+		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=false"], stdout=sb.DEVNULL)
 			child.communicate()[0]
 			rc = child.returncode
 		else:
 			# Attempt to contact node using collect_data executable with transmission time = 0
-			child = sp.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], stdout=sp.DEVNULL)
+			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
+		    	stdout=sb.DEVNULL)
 			child.communicate()[0]
 			rc = child.returncode
 
@@ -450,12 +455,14 @@ class MoveAndCollectDataNaive(Command):
 				(vehicle.location.local_frame.east - self.east) ** 2 + 
 				(vehicle.location.local_frame.down) ** 2))
 			# Attempt to contact node using NS3, disable delay, set data to 1 byte
-			child = sp.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), "--payload=5000000", "--txpower="+str(self.power), "--delay=false"])
+			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), "--payload=5000000", 
+		    	"--txpower="+str(self.power), "--delay=false"])
 			child.communicate()[0]
 			rc = child.returncode
 		else:
 			# Attempt to contact node using collect_data executable with transmission time = 0
-			child = sp.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], stdout=sp.DEVNULL)
+			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
+		    	stdout=sb.DEVNULL)
 			child.communicate()[0]
 			rc = child.returncode
 
