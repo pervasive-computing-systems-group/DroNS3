@@ -5,6 +5,7 @@ from dronekit import connect, VehicleMode, LocationGlobalRelative
 import subprocess as sb
 import sys
 import defines
+from simulation_wrapper import Wrapper
 # 
 # To run the simulation, open a terminal in ardupilot/ArduCopter and run:
 # sim_vehicle.py -f quad -L CSM_SurveyField --console --map --osd
@@ -93,27 +94,29 @@ if __name__ == '__main__':
 	#for i in range(start_seed, start_seed + iterations):
 	# seed = int(sys.argv[1])
 	# path = sys.argv[2]
-	seed = 0
-	path = defines.MISSION_PATH
-	missions.setSeed(seed)
-	missions.setPath(path)
-	init()
-	mission_num = 0
-	if(mission_num == 0):
-		start_next_mission(mission=missions.CollectWSNData())
-		print("Mission Normal Completed")
+	# seed = 0
+	# path = defines.MISSION_PATH
+	# missions.setSeed(seed)
+	# missions.setPath(path)
+	# init()
+	# mission_num = 0
+	# if(mission_num == 0):
+	# 	start_next_mission(mission=missions.CollectWSNData())
+	# 	print("Mission Normal Completed")
 
-	elif(mission_num == 1):
-		start_next_mission(mission=missions.CollectWSNDataNaive())
-		print("Mission Normal Completed")
+	# elif(mission_num == 1):
+	# 	start_next_mission(mission=missions.CollectWSNDataNaive())
+	# 	print("Mission Naive Completed")
 
-	elif(mission_num == 2):
-		start_next_mission(mission=missions.CollectWSNDataLKH())
-		print("Mission LKH Completed")
+	# elif(mission_num == 2):
+	# 	start_next_mission(mission=missions.CollectWSNDataLKH())
+	# 	print("Mission LKH Completed")
 		
-	elif(mission_num == 3):
-		start_next_mission(mission=missions.CollectWSNDataNoSub())
-		print("Mission NOSUB Completed")
+	# elif(mission_num == 3):
+	# 	start_next_mission(mission=missions.CollectWSNDataNoSub())
+	# 	print("Mission NOSUB Completed")
 
-	sys.exit(0)
+	# sys.exit(0)
+	w = Wrapper()
+	w.start_next_mission(mission=missions.CollectWSNData())
 	

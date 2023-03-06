@@ -6,6 +6,8 @@ import time
 import subprocess as sb
 from threading import Thread, Event
 import defines
+import signal
+from process_handler import ProcessHandler
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
 make naming convention more descriptive (Maybe start() is a better name). 
@@ -14,6 +16,18 @@ We should try to remove all global variables.
 We should try to make all filepaths passed rather than hardcoded - or in the defines file for any library. 
 '''
 
+# ph = ProcessHandler(debug=defines.debug)
+
+# def signal_handler(signum, frame):
+# 		ph.signal_handler(signum, frame)
+# 		exit(1)
+
+
+# signal.signal(signal.SIGINT, signal_handler)
+
+def setHolder(holder_t):
+	global holder 
+	holder = holder_t
 
 #TODO: Refactor into passed object
 def init_data_collected():
@@ -217,6 +231,7 @@ class CollectData(Command):
 		if self.node_collect_time is not None:
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
+			holder.add_thread(self.thread)
 		else:
 			print("ERROR: failed to find node " + str(self.node_ID) + " info")
 			# Set complete-flag
@@ -235,12 +250,14 @@ class CollectData(Command):
 			# Collect data using NS3
 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
 		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=true"],  stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 		else:
 			# Collect data using collect_data executable
 			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), 
 		     	str(self.node_hostname), str(self.node_collect_time)], stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 
@@ -317,6 +334,7 @@ class MoveAndCollectData(Command):
 				self.collect_success = True
 				self.thread = Thread(target=self.collection_thread)
 				self.thread.start()
+				holder.add_thread(self.thread)
 			else:
 				# Still cannot talk to node...
 				target_dist = abs(math.sqrt(
@@ -344,12 +362,14 @@ class MoveAndCollectData(Command):
 			# Attempt to contact node using NS3, disable delay, set data to 1 byte
 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
 		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=false"], stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 		else:
 			# Attempt to contact node using collect_data executable with transmission time = 0
 			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
 		    	stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 
@@ -428,6 +448,7 @@ class MoveAndCollectDataNaive(Command):
 				self.collect_success = True
 				self.thread = Thread(target=self.collection_thread)
 				self.thread.start()
+				holder.add_thread(self.thread)
 			elif self.collect_success and target_dist < 0.5 and not self.stopped_at_point:
 				send_stop()
 				print("Stopping at node for data collection")
@@ -463,6 +484,7 @@ class MoveAndCollectDataNaive(Command):
 			# Attempt to contact node using collect_data executable with transmission time = 0
 			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
 		    	stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 

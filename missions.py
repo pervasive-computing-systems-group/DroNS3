@@ -9,6 +9,8 @@ import time
 import numpy as np
 import defines
 import math
+from process_handler import ProcessHandler
+import signal
 
 '''
 TODO:
@@ -20,6 +22,15 @@ Make general mission that uses a file with a series of commands in it.
 Remove all NS3 calls.
 Create a class that simulates the network communication stuff (The NS3 Stuff).
 '''
+
+# ph = ProcessHandler(debug=defines.debug)
+
+# def signal_handler(signum, frame):
+# 		ph.signal_handler(signum, frame)
+# 		exit(1)
+
+
+# signal.signal(signal.SIGINT, signal_handler)
 
 #TODO: Remove reliance on global variables
 def setSimulation(sim):
@@ -477,7 +488,12 @@ def FindNodeDistance(a, b):
 
 #Runs the LKH solver and returns the solution
 def getLKHSolution(start, end):
-	sb.Popen([defines.LKH_PATH, "FixedHPP.par"])
+	lkh_process = sb.Popen([defines.LKH_PATH, "FixedHPP.par"])
+
+	# process_num = ph.add_process(lkh_process)
+	lkh_process.communicate()[0]
+	# ph.remove_process(process_num)
+
 	with open("LKH_output.dat") as outputFile:
 		lines = outputFile.readlines()
 	path = []
