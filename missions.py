@@ -9,7 +9,6 @@ import time
 import numpy as np
 import defines
 import math
-from process_handler import ProcessHandler
 import signal
 
 '''
@@ -81,19 +80,16 @@ class Mission(object):
 		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
 		#TODO: more robust failsafe
 		while not self.terminate:
-			if vehicle.mode == VehicleMode('LAND'):
-				self.dispose()
-			else:
+			if vehicle.mode == VehicleMode("GUIDED") and vehicle.system_status == "ACTIVE":
 				self.update()
+			else:
+				time.sleep(0.1)
+				print("Vehicle no longer in guided or in non-stable flight mode")
 
 	# Periodically called to check command status/is-done
 	def update(self):
-		# Verify we haven't gone into land mode
-		#TODO: More robust failsafe
-		if vehicle.mode == VehicleMode('LAND'):
-			self.dispose()
 		# Check current command
-		elif self.command.is_done():
+		if self.command.is_done():
 			# Current command finished, check if there is another command
 			if self.q:
 				# Run next command
@@ -109,6 +105,8 @@ class Mission(object):
 
 	def dispose(self):
 		self.terminate = True
+
+	
 
 #TODO: Rename? Name not intuitive
 class Manual(Mission):

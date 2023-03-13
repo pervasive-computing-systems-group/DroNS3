@@ -7,7 +7,6 @@ import subprocess as sb
 from threading import Thread, Event
 import defines
 import signal
-from process_handler import ProcessHandler
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
 make naming convention more descriptive (Maybe start() is a better name). 
