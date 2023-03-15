@@ -118,5 +118,5 @@ if __name__ == '__main__':
 
 	# sys.exit(0)
 	w = Wrapper()
-	w.start_next_mission(mission=missions.CollectWSNData())
+	w.start_next_mission(mission=missions.CollectWSNData(algorithm = "NO_SUB"))
 	
