@@ -296,6 +296,7 @@ class CollectWSNData(Mission):
 
 			print("Data Collected:", commands.data_collected)
 			commands.data_collected = 0
+			self.terminate = True
 
 		super(CollectWSNData, self).update()
 
