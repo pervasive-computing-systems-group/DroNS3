@@ -33,6 +33,7 @@ class Wrapper(object):
         missions.setSimulation(True)
         commands.setSimulation(True)
         commands.setHolder(self.pth)
+        missions.setHolder(self.pth)
 
         seed = 0
         path = defines.MISSION_PATH
