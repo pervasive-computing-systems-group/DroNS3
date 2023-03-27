@@ -31,14 +31,12 @@ class Wrapper(object):
         self.debug = defines.debug
         # We are not running the simulation
         missions.setSimulation(True)
-        commands.setSimulation(True)
         commands.setHolder(self.pth)
         missions.setHolder(self.pth)
 
         seed = 0
         path = defines.MISSION_PATH
         missions.setSeed(seed)
-        missions.setPath(path)
 
         print("Connect to simulation vehicle")
         self.vehicle = connect('localhost:14550', wait_ready=True)
@@ -48,7 +46,6 @@ class Wrapper(object):
 
         # Pass the vehicle to rest of ICCS autopilot
         missions.pass_vehicle(self.vehicle)
-        commands.pass_vehicle(self.vehicle)
 
         # Get Vehicle Home location - will be `None` until first set by autopilot
         while not self.vehicle.home_location:
