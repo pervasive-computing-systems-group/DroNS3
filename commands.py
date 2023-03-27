@@ -86,7 +86,7 @@ class GainAlt(Command):
 				time.sleep(0.5)
 			self.vehicle.simple_takeoff(self.target_altitude)
 		else:
-			goto_position_target_local_enu(0, 0, self.target_altitude)
+			goto_position_target_local_enu(0, 0, self.target_altitude, self.vehicle)
 
 	def is_done(self):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
@@ -116,7 +116,7 @@ class StopTimer(Command):
 #TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
 # Enable tolerance as an optional param
 class MoveToWaypoint(Command): #used to be WaypointDist
-	def __init__(self, east, north, up, tolerance, passed_vehicle):
+	def __init__(self, east, north, up, passed_vehicle, tolerance = 0.5):
 		self.east = east
 		self.north = north
 		self.up = up
@@ -124,7 +124,7 @@ class MoveToWaypoint(Command): #used to be WaypointDist
 
 	def begin(self):
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
@@ -205,7 +205,8 @@ class Land(Command):
 #TODO: Potentially refactor Collect Data to include MoveAndCollectData
 class CollectData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)
-	def __init__(self, node, power,  passed_vehicle, mpath, sim = False):
+	def __init__(self, node, power,  passed_vehicle, mpath, telem, sim = False):
+		self.data = telem
 		self.node_ID = node
 		self.power = power
 		self.east = 0
@@ -213,12 +214,11 @@ class CollectData(Command):
 		self.thread = None
 		self.node_hostname = None
 		self.node_collect_time = None
-		self.data_collected = 0
 		self.running_sim = sim
 		self.vehicle = passed_vehicle
 		self.path = mpath
 		# Find data about this node
-		file1 = open( self.path + "node_info.txt","r+")
+		file1 = open( self.path)
 		for aline in file1:
 			values = aline.split()
 			if int(values[0]) == self.node_ID:
@@ -272,10 +272,10 @@ class CollectData(Command):
 		# If return on comms process was successful, set success-flag
 		if rc == 0:
 			#global data_collected
-			if self.data_collected is None:
-				self.data_collected = 0
+			if self.data.data_collected is None:
+				self.data.data_collected = 0
 			print("Successfully collected 5000000 from node " + str(self.node_ID))
-			self.data_collected += 5000000
+			self.data.data_collected += 5000000
 			self.collect_success.set()
 		# else, leave success-flag unset
 		else:
@@ -312,7 +312,7 @@ class MoveAndCollectData(Command):
 			The node info file lists the nodes in the WSN. Each line contains one node. Coordinates are relative to home locations.
 				[node number] [IP address] [sensor data size] [relative x] [relative y]
 	'''
-	def __init__(self, node, alt, power, vehicle, algorithm = "DEFAULT", node_path = "sample_wsn_mission/node_info.txt", sim = False):
+	def __init__(self, node, alt, power, vehicle, telem, algorithm = "DEFAULT", node_path = "sample_wsn_mission/node_info.txt", sim = False):
 
 		self.node_ID = node
 		self.power = power
@@ -322,7 +322,7 @@ class MoveAndCollectData(Command):
 		self.node_hostname = None
 		self.node_collect_time = None
     
-		self.data_collected = 0
+		self.data = telem
 		self.vehicle = vehicle
 		self.running_sim = sim
 		self.algorithm = algorithm
@@ -351,16 +351,16 @@ class MoveAndCollectData(Command):
 		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 
 	def update(self):
 		# Check if we found data on this node
 		if self.node_collect_time is not None:
 			#Get distance to node
 			target_dist = abs(math.sqrt(
-					(vehicle.location.local_frame.north - self.north) ** 2 + 
-					(vehicle.location.local_frame.east - self.east) ** 2 + 
-					(vehicle.location.local_frame.down + self.up) ** 2))
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down + self.up) ** 2))
 			# Attempt to communicate with this node
 			if not self.collect_success and self.launchCollection():
 				print("Connected to node, stopping for data collection")
@@ -415,7 +415,7 @@ class MoveAndCollectData(Command):
 		if rc == 0:
 			print("Successfully collected 5000000 from node " + str(self.node_ID))
 			#global data_collected
-			self.data_collected += 5000000
+			self.data.data_collected += 5000000
 			return True
 		# else, return false
 		else:

@@ -11,6 +11,7 @@ import defines
 import math
 import signal
 from solver import LKH_Solver
+from telemetry import WSNData
 
 '''
 TODO:
@@ -50,7 +51,6 @@ def setSeed(vseed):
 def setPath(vpath):
 	global path
 	path = vpath
-	commands.setPath(path)
 
 
 #TODO: Refactor to be passed into the mission
@@ -119,9 +119,9 @@ class Manual(Mission):
 
 	def __init__(self):
 		self.is_loiter = False
-		self.command_idle = commands.Idle('LOITER')
+		self.command_idle = commands.Idle('LOITER', vehicle)
 		self.command_idle.can_idle = False
-		self.command = commands.GainAlt(2)
+		self.command = commands.GainAlt(2, vehicle)
 		self.q.append(self.command_idle)
 
 	def update(self):
@@ -132,7 +132,7 @@ class Manual(Mission):
 
 
 
-#TODO: Refactor all CollectWSNData into single mission with an algorithm parameter
+
 class CollectWSNData(Mission):
 
 	'''
@@ -175,18 +175,19 @@ class CollectWSNData(Mission):
 	
 
 	def __init__(self, plan_path = "sample_wsn_mission/drone_plan.pln", node_path = "sample_wsn_mission/node_info.txt", output_path = "./", algorithm = "DEFAULT"):
+		
+		self.data = WSNData()
 
 		self.plan_path = plan_path
 		self.algorithm = algorithm
 		self.output_path = output_path
 		self.node_path = node_path
 
-		commands.init_data_collected()
 		# Set random seed for consistancy
 		np.random.seed(seed)
 		self.mission_alt = 50
 		# Add take-off command
-		self.q.append(commands.GainAlt(self.mission_alt))
+		self.q.append(commands.GainAlt(self.mission_alt, vehicle))
 		# Add Timer-Start command
 		self.q.append(commands.StartTimer())
 		# Get list of commands from file
@@ -199,7 +200,7 @@ class CollectWSNData(Mission):
 			# If cmd = 0 (waypoint)
 			if int(values[0]) == self.CMD_WAYPOINT:
 				# Add waypoint movement to queue
-				self.q.append(commands.WaypointDist(float(values[1]), float(values[2]), float(values[3])))
+				self.q.append(commands.MoveToWaypoint(float(values[1]), float(values[2]), float(values[3]), vehicle))
 			# else if cmd = 1 (data collection)
 			elif int(values[0]) == self.CMD_COLL_DATA:
 				print(values)
@@ -207,7 +208,7 @@ class CollectWSNData(Mission):
 				arr = np.random.normal(float(values[2]) - 1, 8, 1)
 				self.nPowers[int(values[1])] = arr[0]
 				# Add collect data command
-				self.q.append(commands.CollectData(int(values[1]), arr[0]))
+				self.q.append(commands.CollectData(int(values[1]), arr[0], vehicle, node_path, self.data, sim = running_sim))
 			elif int(values[0]) == self.CMD_MSN_ALT:
 				# Set mission altitude
 				self.mission_alt = float(values[1])
@@ -215,12 +216,12 @@ class CollectWSNData(Mission):
 				print("ERROR: unexpected cmd in pln file")
 		file1.close()
 		# Add Return-To-Home command
-		self.q.append(commands.ReturnHome(self.mission_alt))
+		self.q.append(commands.ReturnHome(self.mission_alt, vehicle))
 		# Add Timer-Stop command
 		self.q.append(commands.StopTimer())
 		if running_sim:
 			# Add land command
-			self.q.append(commands.Land())
+			self.q.append(commands.Land(vehicle))
 		# Add first command as current command
 		self.command = self.q.popleft()
 		print("Node power settings")
@@ -232,9 +233,9 @@ class CollectWSNData(Mission):
 			if self.command.is_done():
 				# Finished, check is collection was successful
 				if self.command.collection_success():
-					print("Total collected data: " + str(commands.data_collected))
+					print("Total collected data: " + str(self.data.data_collected))
 				else:
-					print("Total collected data: " + str(commands.data_collected))
+					print("Total collected data: " + str(self.data.data_collected))
 					# print("Failed collected data from " + str(self.command.node_ID))
 					# Add this node to missed nodes queue
 					self.missed_q.append(self.command.node_ID)
@@ -255,10 +256,10 @@ class CollectWSNData(Mission):
 							file1.close()
 							# Add moving-collecting from this node to the command queue
 							hpp_points.append([east,north])
-						if isinstance(self.q[0], commands.WaypointDist):
+						if isinstance(self.q[0], commands.MoveToWaypoint):
 							hpp_points.append([self.q[0].east, self.q[0].north])
 							hpp_points_id.append(-1)
-							hpp_points.append(commands.get_xy())
+							hpp_points.append(commands.get_xy(vehicle))
 							hpp_points_id.append(-1)
 							
 						else:
@@ -270,17 +271,17 @@ class CollectWSNData(Mission):
 						if len(hpp_points) < 3:
 							for p, i in zip(hpp_points, hpp_points_id):
 								if i == -1:
-									self.q.appendleft(commands.WaypointDist(p[0], p[1], self.mission_alt))
+									self.q.appendleft(commands.MoveToWaypoint(p[0], p[1], self.mission_alt, vehicle))
 								else:
-									self.q.appendleft(commands.MoveAndCollectData(i, self.mission_alt, self.nPowers[i], node_path = self.node_path))
+									self.q.appendleft(commands.MoveAndCollectData(i, self.mission_alt, self.nPowers[i], vehicle, self.data, node_path = self.node_path, sim = running_sim))
 						else:
 							lkh = LKH_Solver([hpp_points, len(hpp_points) - 2, len(hpp_points) - 1, holder])
 							LKH_path = lkh.solve()
 							for p in LKH_path:
 								if hpp_points_id[p] == -1:
-									self.q.appendleft(commands.WaypointDist(hpp_points[p][0], hpp_points[p][1], self.mission_alt))
+									self.q.appendleft(commands.MoveToWaypoint(hpp_points[p][0], hpp_points[p][1], self.mission_alt, vehicle))
 								else:
-									self.q.appendleft(commands.MoveAndCollectData(hpp_points_id[p], self.mission_alt, self.nPowers[p], node_path = self.node_path))
+									self.q.appendleft(commands.MoveAndCollectData(hpp_points_id[p], self.mission_alt, self.nPowers[p], vehicle, self.data, node_path = self.node_path, sim = running_sim))
 
 					# Done collecting data at this point, start recovery
 					while self.missed_q:
@@ -288,7 +289,7 @@ class CollectWSNData(Mission):
 						if self.algorithm != "NO_SUB":
 							print("Added move-collect command")
 							# Add moving-collecting from this node to the command queue
-							self.q.appendleft(commands.MoveAndCollectData(n, self.mission_alt, self.nPowers[n], algorithm = "NAIVE" if self.algorithm == "NAIVE" else "Default", node_path = self.node_path))
+							self.q.appendleft(commands.MoveAndCollectData(n, self.mission_alt, self.nPowers[n], vehicle, self.data, algorithm = "NAIVE" if self.algorithm == "NAIVE" else "Default", node_path = self.node_path, sim = running_sim))
 		# Check to see if we just finished a move-collect command
 		if isinstance(self.command, commands.MoveAndCollectData):
 			# Check if this was the last move-collect command
@@ -296,102 +297,27 @@ class CollectWSNData(Mission):
 				# TODO: Update the next waypoint
 				pass
 		if isinstance(self.command, commands.StartTimer):
-			self.start_time = time.time()
+			self.data.start_timer()
 			print("Starting Timer")
 
 		if isinstance(self.command, commands.StopTimer):
-			self.end_time = time.time()
+			self.data.stop_timer()
 			print("Stopping Timer")
-			lapsed = self.end_time - self.start_time
-			print(lapsed)
+			print(self.data.total_time)
 			if self.output_path[-1] != "/":
 				self.output_path += "/"
 
 			with open(self.output_path + "flight-time.dat", "a") as tfile:
-				tfile.write("0 " + str(lapsed) + "\n")
+				tfile.write("0 " + str(self.data.total_time) + "\n")
 
 			with open(self.output_path + "data_collected.dat", "a") as dfile:
-				dfile.write("0 " + str(commands.data_collected) + "\n")
+				dfile.write("0 " + str(self.data.data_collected) + "\n")
 
-			print("Data Collected:", commands.data_collected)
-			commands.data_collected = 0
+			print("Data Collected:", self.data.data_collected)
 			self.terminate = True
 
 		super(CollectWSNData, self).update()
 
-		#Prints LKH parameters to a the required file
-# def PrintLKHFile(self, hpp_points, start, end):
-# 	with open("FixedHPP.par", "w") as parFile:
-# 		parFile.write("PROBLEM_FILE = FixedHPP.tsp\n")
-# 		parFile.write("COMMENT Fixed Hamiltonian Path Problem\n")
-# 		parFile.write("TOUR_FILE = LKH_output.dat\n")
-
-# 	with open("FixedHPP.tsp", "w") as dataFile:
-# 		dataFile.write("NAME : FixedHPP \n")
-# 		dataFile.write("COMMENT : Fixed Hamiltonian Path Problem \n")
-# 		dataFile.write("TYPE : TSP \n")
-# 		dataFile.write("DIMENSION : " + str(len(hpp_points)) + "\n")
-# 		dataFile.write("EDGE_WEIGHT_TYPE : EXPLICIT \n")
-# 		dataFile.write("EDGE_WEIGHT_FORMAT : FULL_MATRIX\n")
-
-# 		dataFile.write("EDGE_WEIGHT_SECTION\n")
-# 		for i in range(len(hpp_points)):
-# 			for j in range(len(hpp_points)):
-# 				if(i == start and j == end) or (i == end and j == start):
-# 					dataFile.write("0.0\t")
-# 				else:
-# 					if i == start or i == end or j == start or j == end:
-# 						dataFile.write(str(self.FindNodeDistance(hpp_points[i], hpp_points[j])*1000) + "\t")
-# 					else:
-# 						dataFile.write(str(self.FindNodeDistance(hpp_points[i], hpp_points[j])) + "\t")
-# 			dataFile.write("\n")
-# 		dataFile.write("EOF\n")
-# 	#Finds the distance between two points
-# def FindNodeDistance(self, a, b):
-# 	return math.sqrt(((a[0] - b[0])**2 + (a[1] - b[1])**2))
-
-# #Runs the LKH solver and returns the solution
-# def getLKHSolution(self, start, end):
-# 	lkh_process = sb.Popen([defines.LKH_PATH, "FixedHPP.par"])
-# 	holder.add_process(lkh_process)
-
-
-# 	# process_num = ph.add_process(lkh_process)
-# 	lkh_process.communicate()[0]
-# 	# ph.remove_process(process_num)
-
-# 	with open("LKH_output.dat") as outputFile:
-# 		lines = outputFile.readlines()
-# 	lkh_path = []
-	
-# 	for i in range(6, len(lines) - 1):
-# 		if int(lines[i]) != -1:
-# 			lkh_path.append(int(lines[i]) -1)
-
-
-# 	print(lkh_path)
-# 	if lkh_path[0] != start or lkh_path[-1] != end:
-		
-# 		if lkh_path[1] == end and lkh_path[0] == start:
-# 			lkh_path.append(lkh_path[0])
-# 			lkh_path.pop(0)
-# 			lkh_path.reverse()
-		
-# 		while lkh_path[0] != start:
-# 			print("Rotating list...")
-# 			lkh_path.append(lkh_path[0])
-# 			lkh_path.pop(0)
-
-# 		if lkh_path[1] == end:
-# 			lkh_path.append(lkh_path[0])
-# 			lkh_path.pop(0)
-# 			lkh_path.reverse()
-
-# 		if lkh_path[-1] != end:
-# 			raise(Exception("Temp exception 2 for TSP failing to function as HPP"))
-	
-
-# 	return lkh_path
 
 
 
