@@ -6,6 +6,7 @@ import time
 import subprocess as sb
 from threading import Thread, Event
 import defines
+import signal
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
 make naming convention more descriptive (Maybe start() is a better name). 
@@ -14,6 +15,18 @@ We should try to remove all global variables.
 We should try to make all filepaths passed rather than hardcoded - or in the defines file for any library. 
 '''
 
+# ph = ProcessHandler(debug=defines.debug)
+
+# def signal_handler(signum, frame):
+# 		ph.signal_handler(signum, frame)
+# 		exit(1)
+
+
+# signal.signal(signal.SIGINT, signal_handler)
+
+def setHolder(holder_t):
+	global holder 
+	holder = holder_t
 
 #TODO: Refactor into passed object
 #def init_data_collected():
@@ -226,6 +239,7 @@ class CollectData(Command):
 		if self.node_collect_time is not None:
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
+			holder.add_thread(self.thread)
 		else:
 			print("ERROR: failed to find node " + str(self.node_ID) + " info")
 			# Set complete-flag
@@ -244,12 +258,14 @@ class CollectData(Command):
 			# Collect data using NS3
 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
 		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=true"],  stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 		else:
 			# Collect data using collect_data executable
 			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), 
 		     	str(self.node_hostname), str(self.node_collect_time)], stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 
@@ -284,7 +300,20 @@ class CollectData(Command):
 class MoveAndCollectData(Command):
 	# Attempt to collect data from node, while moving towards the node 
 	# at altitude alt, with node communication range node_range (for simulation)
-	def __init__(self, node, alt, power, passed_vehicle, sim = False):
+	'''
+		Attempt to collect data from node, while moving towards the node
+		at altitude alt, with node connection power 'power' (for simulation)
+
+		Available algorithms: 
+			DEFAULT: Default configuration, stops when it recieves a signal from the node
+			NAIVE: No early stopping, always stops at the known location of the node
+
+		node_path: path to node info file. Default value is "node_info.txt"
+			The node info file lists the nodes in the WSN. Each line contains one node. Coordinates are relative to home locations.
+				[node number] [IP address] [sensor data size] [relative x] [relative y]
+	'''
+	def __init__(self, node, alt, power, vehicle, algorithm = "DEFAULT", node_path = "sample_wsn_mission/node_info.txt", sim = False):
+
 		self.node_ID = node
 		self.power = power
 		self.east = 0
@@ -292,118 +321,15 @@ class MoveAndCollectData(Command):
 		self.up = alt
 		self.node_hostname = None
 		self.node_collect_time = None
+    
 		self.data_collected = 0
-		self.vehicle = passed_vehicle
+		self.vehicle = vehicle
 		self.running_sim = sim
+		self.algorithm = algorithm
+		self.node_path = node_path
 		# Find data about this node
-		with open(self.path + "node_info.txt","r+") as file1:
-			for aline in file1:
-				values = aline.split()
-				if int(values[0]) == self.node_ID:
-					self.node_hostname = values[1]
-					self.node_collect_time = int(values[2])
-					self.east = float(values[3])
-					self.north = float(values[4])
-					break
-		self.collect_success = False
-		# Thread event for collection complete
-		self.collect_complete = Event()
-		self.collect_complete.clear()
-		self.thread = None
-
-	def begin(self):
-		print("Starting move-collect command for node ", self.node_ID)
-		# Move towards the node
-		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
-
-	def update(self):
-		# Check if we found data on this node
-		if self.node_collect_time is not None:
-			# Attempt to communicate with this node
-			if not self.collect_success and self.launchCollection():
-				print("Connected to node, stopping for data collection")
-				# Made contact, stop and collect data
-				send_stop()
-				self.collect_success = True
-				self.thread = Thread(target=self.collection_thread)
-				self.thread.start()
-			else:
-				# Still cannot talk to node...
-				target_dist = abs(math.sqrt(
-					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
-					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
-					(self.vehicle.location.local_frame.down + self.up) ** 2))
-				#  Check if we reached the node
-				if target_dist < 0.5:
-					# Reached node, could not connect...
-					self.collect_complete.set()
-		else:
-			print("ERROR: failed to find node " + str(self.node_ID) + " info")
-			# Set complete-flag
-			self.collect_complete.set()
-
-	def launchCollection(self):
-		# Start comms process with 0 wait time, wait for response
-		
-		# Are we running the simulation?
-		if self.running_sim:
-			dist_to_node = abs(math.sqrt(
-				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
-				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
-				(self.vehicle.location.local_frame.down) ** 2))
-			# Attempt to contact node using NS3, disable delay, set data to 1 byte
-			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
-		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=false"], stdout=sb.DEVNULL)
-			child.communicate()[0]
-			rc = child.returncode
-		else:
-			# Attempt to contact node using collect_data executable with transmission time = 0
-			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
-		    	stdout=sb.DEVNULL)
-			child.communicate()[0]
-			rc = child.returncode
-
-		# If return on comms process was successful, return true
-		if rc == 0:
-			print("Successfully collected 5000000 from node " + str(self.node_ID))
-			#global data_collected
-			self.data_collected += 5000000
-			return True
-		# else, return false
-		else:
-			print("failed to collect from node " + str(self.node_ID))
-			return False
-
-	def collection_thread(self):
-		time.sleep(self.node_collect_time/1000.0)
-		self.collect_complete.set()
-
-	def is_done(self):
-		if self.collect_complete.is_set():
-			return True
-		else:
-			return False
-		
-	def collection_success(self):
-		return self.collect_success
-
-class MoveAndCollectDataNaive(Command):
-	# Attempt to collect data from node, while moving towards the node 
-	# at altitude alt, with node communication range node_range (for simulation)
-	def __init__(self, node, alt, power, passed_vehicle, mpath, sim = False):
-		self.node_ID = node
-		self.power = power
-		self.east = 0
-		self.north = 0
-		self.up = alt
-		self.node_hostname = None
-		self.node_collect_time = None
-		self.vehicle = passed_vehicle
-		self.running_sim = sim
-		self.path = mpath
-		# Find data about this node
-		file1 = open(self.path + "node_info.txt","r+")
+    
+		file1 = open(self.node_path,"r+")
 		for aline in file1:
 			values = aline.split()
 			if int(values[0]) == self.node_ID:
@@ -413,6 +339,7 @@ class MoveAndCollectDataNaive(Command):
 				self.north = float(values[4])
 				break
 		file1.close()
+    
 		self.collect_success = False
 		self.stopped_at_point = False
 		# Thread event for collection complete
@@ -429,39 +356,41 @@ class MoveAndCollectDataNaive(Command):
 	def update(self):
 		# Check if we found data on this node
 		if self.node_collect_time is not None:
-
-			# Find Distance to node
+			#Get distance to node
 			target_dist = abs(math.sqrt(
-					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
-					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
-					(self.vehicle.location.local_frame.down + self.up) ** 2))
+					(vehicle.location.local_frame.north - self.north) ** 2 + 
+					(vehicle.location.local_frame.east - self.east) ** 2 + 
+					(vehicle.location.local_frame.down + self.up) ** 2))
 			# Attempt to communicate with this node
 			if not self.collect_success and self.launchCollection():
-				print("Connected to node, starting data collection")
-				# Made contact, collect data
+				print("Connected to node, stopping for data collection")
+				# Made contact, stop and collect data
+				if self.algorithm == "DEFAULT":
+					send_stop()
 				self.collect_success = True
 				self.thread = Thread(target=self.collection_thread)
 				self.thread.start()
-			elif self.collect_success and target_dist < 0.5 and not self.stopped_at_point:
+				holder.add_thread(self.thread)
+			elif self.algorithm == "NAIVE" and self.collect_success and target_dist < 0.5 and not self.stopped_at_point:
 				send_stop()
 				print("Stopping at node for data collection")
 				self.stopped_at_point = True
-			else:
-				# Still cannot talk to node...
+			else: 
 				#  Check if we reached the node
-				if target_dist < 0.5 and not self.collect_success:
+				if target_dist < 0.5:
 					# Reached node, could not connect...
 					self.collect_complete.set()
-			#Stop if collecting and have reached the waypoint
-			
 		else:
 			print("ERROR: failed to find node " + str(self.node_ID) + " info")
 			# Set complete-flag
 			self.collect_complete.set()
+			
 
-	def launchCollection(self, sim = False):
+
+
+	def launchCollection(self):
 		# Start comms process with 0 wait time, wait for response
-		self.running_sim = sim
+		
 		# Are we running the simulation?
 		if self.running_sim:
 			dist_to_node = abs(math.sqrt(
@@ -469,21 +398,23 @@ class MoveAndCollectDataNaive(Command):
 				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
 				(self.vehicle.location.local_frame.down) ** 2))
 			# Attempt to contact node using NS3, disable delay, set data to 1 byte
-			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), "--payload=5000000", 
-		    	"--txpower="+str(self.power), "--delay=false"])
+			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
+		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=false"], stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 		else:
 			# Attempt to contact node using collect_data executable with transmission time = 0
 			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
 		    	stdout=sb.DEVNULL)
+			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
 
 		# If return on comms process was successful, return true
 		if rc == 0:
-			#global data_collected
 			print("Successfully collected 5000000 from node " + str(self.node_ID))
+			#global data_collected
 			self.data_collected += 5000000
 			return True
 		# else, return false
@@ -503,6 +434,9 @@ class MoveAndCollectDataNaive(Command):
 		
 	def collection_success(self):
 		return self.collect_success
+		
+# 	def collection_success(self):
+# 		return self.collect_success
 
 
 def land_in_place(passed_vehicle):
