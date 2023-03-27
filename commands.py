@@ -15,26 +15,6 @@ We should try to make all filepaths passed rather than hardcoded - or in the def
 '''
 
 
-#TODO: Refactor into passed object
-#def init_data_collected():
-	#global data_collected
-	#data_collected = 0 - putting these into classes- self.data_collected = 0?
-
-#TODO: Refactor into an optional argument
-#def setSimulation(sim):
-	#global running_sim 
-	#running_sim = sim
-
-#TODO: Refactor into an argument 
-#def pass_vehicle(passed_vehicle):
-#	global vehicle
-#	vehicle = passed_vehicle
-
-#TODO: Refactor into an argument
-#def setPath(mpath):
-#	global path
-#	path = mpath
-
 
 def get_xy(passed_vehicle):
 	return [passed_vehicle.location.local_frame.east, passed_vehicle.location.local_frame.north]
@@ -73,7 +53,7 @@ class GainAlt(Command):
 				time.sleep(0.5)
 			self.vehicle.simple_takeoff(self.target_altitude)
 		else:
-			goto_position_target_local_enu(0, 0, self.target_altitude)
+			self.goto_position_target_local_enu(0, 0, self.target_altitude)
 
 	def is_done(self):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
@@ -111,7 +91,7 @@ class MoveToWaypoint(Command): #used to be WaypointDist
 
 	def begin(self):
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		self.goto_position_target_local_enu(self.east, self.north, self.up)
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
@@ -119,6 +99,18 @@ class MoveToWaypoint(Command): #used to be WaypointDist
 			(self.vehicle.location.local_frame.east - self.east) ** 2 + 
 			(self.vehicle.location.local_frame.down + self.up) ** 2))
 		return target_dist < 0.5
+	def goto_position_target_local_enu(self, east, north, up, passed_vehicle): #put into Waypoint dist
+		down = -up
+		msg = passed_vehicle.message_factory.set_position_target_local_ned_encode(
+			0,      # time_boot_ms (not used)
+			0, 0,   # target system, target component
+			mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
+			0b0000111111111000, # type_mask (only positions enabled)
+			north, east, down, # NED positions
+			0, 0, 0, # NED velocities
+			0, 0, 0, # NED accelerations (not supported),
+			0, 0)    # yaw, yaw_rate (not supported)
+		passed_vehicle.send_mavlink(msg)
 
 #TODO: More accurate commenting and naming. This should be similar to the previous one, 
 # just based off of time instead of a tolerance. Probably not the most useful.
@@ -132,7 +124,7 @@ class WaypointTime(Command):
 
 	def begin(self):
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		self.goto_position_target_local_enu(self.east, self.north, self.up)
 		self.time_start = time.time()
 
 	def is_done(self):
@@ -169,7 +161,7 @@ class ReturnHome(Command):
 
 	def begin(self):
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		self.goto_position_target_local_enu(self.east, self.north, self.up)
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
@@ -315,7 +307,7 @@ class MoveAndCollectData(Command):
 		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		self.goto_position_target_local_enu(self.east, self.north, self.up)
 
 	def update(self):
 		# Check if we found data on this node
@@ -424,7 +416,7 @@ class MoveAndCollectDataNaive(Command):
 		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		self.goto_position_target_local_enu(self.east, self.north, self.up)
 
 	def update(self):
 		# Check if we found data on this node
@@ -519,18 +511,18 @@ def land_in_place(passed_vehicle):
 
 	passed_vehicle.close()
 
-def goto_position_target_local_enu(east, north, up, passed_vehicle):
-	down = -up
-	msg = passed_vehicle.message_factory.set_position_target_local_ned_encode(
-			0,      # time_boot_ms (not used)
-			0, 0,   # target system, target component
-			mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
-			0b0000111111111000, # type_mask (only positions enabled)
-			north, east, down, # NED positions
-			0, 0, 0, # NED velocities
-			0, 0, 0, # NED accelerations (not supported),
-			0, 0)    # yaw, yaw_rate (not supported)
-	passed_vehicle.send_mavlink(msg)
+#def goto_position_target_local_enu(east, north, up, passed_vehicle): #put into Waypoint dist
+#	down = -up
+#	msg = passed_vehicle.message_factory.set_position_target_local_ned_encode(
+#			0,      # time_boot_ms (not used)
+#			0, 0,   # target system, target component
+#			mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
+#			0b0000111111111000, # type_mask (only positions enabled)
+#			north, east, down, # NED positions
+#			0, 0, 0, # NED velocities
+#			0, 0, 0, # NED accelerations (not supported),
+#			0, 0)    # yaw, yaw_rate (not supported)
+#	passed_vehicle.send_mavlink(msg)
 
 def send_stop(passed_vehicle):
 	"""
