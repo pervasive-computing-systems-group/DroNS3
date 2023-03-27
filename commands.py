@@ -29,27 +29,28 @@ def setHolder(holder_t):
 	holder = holder_t
 
 #TODO: Refactor into passed object
-def init_data_collected():
-	global data_collected
-	data_collected = 0
+#def init_data_collected():
+	#global data_collected
+	#data_collected = 0 - putting these into classes- self.data_collected = 0?
 
 #TODO: Refactor into an optional argument
-def setSimulation(sim):
-	global running_sim
-	running_sim = sim
+#def setSimulation(sim):
+	#global running_sim 
+	#running_sim = sim
 
 #TODO: Refactor into an argument 
-def pass_vehicle(passed_vehicle):
-	global vehicle
-	vehicle = passed_vehicle
+#def pass_vehicle(passed_vehicle):
+#	global vehicle
+#	vehicle = passed_vehicle
 
 #TODO: Refactor into an argument
-def setPath(mpath):
-	global path
-	path = mpath
+#def setPath(mpath):
+#	global path
+#	path = mpath
 
-def get_xy():
-	return [vehicle.location.local_frame.east, vehicle.location.local_frame.north]
+
+def get_xy(passed_vehicle):
+	return [passed_vehicle.location.local_frame.east, passed_vehicle.location.local_frame.north]
 
 
 class Command(object):
@@ -71,30 +72,30 @@ class Command(object):
 
 #TODO: Research vehicle.simple_takeoff and other takeoff techniques
 class GainAlt(Command):
-	def __init__(self, target_altitude):
+	def __init__(self, target_altitude, passed_vehicle):
 		self.target_altitude = target_altitude
+		self.vehicle = passed_vehicle
+		
 
 	def begin(self):
-		vehicle.mode = VehicleMode('GUIDED')
+		self.vehicle.mode = VehicleMode('GUIDED')
 
-		if vehicle.location.global_relative_frame.alt < 1:
-			while not vehicle.armed:
-				vehicle.armed = True
+		if self.vehicle.location.global_relative_frame.alt < 1:
+			while not self.vehicle.armed:
+				self.vehicle.armed = True
 				time.sleep(0.5)
-			vehicle.simple_takeoff(self.target_altitude)
+			self.vehicle.simple_takeoff(self.target_altitude)
 		else:
 			goto_position_target_local_enu(0, 0, self.target_altitude)
 
 	def is_done(self):
-		diff = abs(vehicle.location.global_relative_frame.alt - self.target_altitude)
+		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
 		return diff < 0.5
 
 #TODO: Refactor data_collected - also what does this even do? Consider if this is even needed or if there is a better way to do this.
 class StartTimer(Command):
 	def __init__(self):
-		global data_collected
-		data_collected = 0
-		pass
+		self.data_collected = 0
 
 	def begin(self):
 		pass
@@ -114,34 +115,36 @@ class StopTimer(Command):
 
 #TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
 # Enable tolerance as an optional param
-class WaypointDist(Command):
-	def __init__(self, east, north, up):
+class MoveToWaypoint(Command): #used to be WaypointDist
+	def __init__(self, east, north, up, tolerance, passed_vehicle):
 		self.east = east
 		self.north = north
 		self.up = up
+		self.vehicle = passed_vehicle
 
 	def begin(self):
-		vehicle.mode = VehicleMode('GUIDED')
+		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
-			(vehicle.location.local_frame.north - self.north) ** 2 + 
-			(vehicle.location.local_frame.east - self.east) ** 2 + 
-			(vehicle.location.local_frame.down + self.up) ** 2))
+			(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+			(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+			(self.vehicle.location.local_frame.down + self.up) ** 2))
 		return target_dist < 0.5
 
 #TODO: More accurate commenting and naming. This should be similar to the previous one, 
 # just based off of time instead of a tolerance. Probably not the most useful.
 class WaypointTime(Command):
-	def __init__(self, east, north, up, seconds):
+	def __init__(self, east, north, up, seconds, passed_vehicle):
 		self.east = east
 		self.north = north
 		self.up = up
 		self.seconds = seconds
+		self.vehicle = passed_vehicle
 
 	def begin(self):
-		vehicle.mode = VehicleMode('GUIDED')
+		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 		self.time_start = time.time()
 
@@ -151,17 +154,18 @@ class WaypointTime(Command):
 
 #TODO: Potentially refactor this into a more comprehensive initialization command
 class Idle(Command):
-	def __init__(self, mode):
+	def __init__(self, mode, passed_vehicle):
 		self.mode = mode
 		self.can_idle = True
-		self.is_idle = False
+		self.is_idle = False	
+		self.vehicle = passed_vehicle
 
 	def begin(self):
-		vehicle.mode = VehicleMode('GUIDED')
+		self.vehicle.mode = VehicleMode('GUIDED')
 
 	def update(self):
 		if self.can_idle and not self.is_idle:
-			vehicle.mode = VehicleMode(self.mode)
+			self.vehicle.mode = VehicleMode(self.mode)
 			self.is_idle = True
 		time.sleep(0.1)
 
@@ -170,37 +174,38 @@ class Idle(Command):
 
 #TODO: Refactor to use code from WaypointDist command - no reason to have another one.
 class ReturnHome(Command):
-	def __init__(self, alt):
+	def __init__(self, alt, passed_vehicle):
 		self.east = 0
 		self.north = 0
 		self.up = alt
+		self.vehicle = passed_vehicle
 
 	def begin(self):
-		vehicle.mode = VehicleMode('GUIDED')
+		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
-			(vehicle.location.local_frame.north - self.north) ** 2 + 
-			(vehicle.location.local_frame.east - self.east) ** 2 + 
-			(vehicle.location.local_frame.down + self.up) ** 2))
+			(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+			(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+			(self.vehicle.location.local_frame.down + self.up) ** 2))
 		return target_dist < 0.5
 
 #TODO: change land_in_place function - we can have the code inside this object and anything that needs it can access it that way.
 class Land(Command):
-	def __init__(self):
-		pass
+	def __init__(self, passed_vehicle):
+		self.vehicle = passed_vehicle
 
 	def begin(self):
 		land_in_place()
 
 	def is_done(self):
-		return vehicle.location.global_relative_frame.alt < 0.1
+		return self.vehicle.location.global_relative_frame.alt < 0.1
 
 #TODO: Potentially refactor Collect Data to include MoveAndCollectData
 class CollectData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)
-	def __init__(self, node, power):
+	def __init__(self, node, power,  passed_vehicle, mpath, sim = False):
 		self.node_ID = node
 		self.power = power
 		self.east = 0
@@ -208,8 +213,12 @@ class CollectData(Command):
 		self.thread = None
 		self.node_hostname = None
 		self.node_collect_time = None
+		self.data_collected = 0
+		self.running_sim = sim
+		self.vehicle = passed_vehicle
+		self.path = mpath
 		# Find data about this node
-		file1 = open( path + "node_info.txt","r+")
+		file1 = open( self.path + "node_info.txt","r+")
 		for aline in file1:
 			values = aline.split()
 			if int(values[0]) == self.node_ID:
@@ -239,13 +248,13 @@ class CollectData(Command):
 	def launchCollection(self):
 		# Start comms process, wait for response
 		#print("Starting data collection process")
-
+	
 		# Are we running the simulation?
-		if running_sim:
+		if self.running_sim:
 			dist_to_node = abs(math.sqrt(
-				(vehicle.location.local_frame.north - self.north) ** 2 + 
-				(vehicle.location.local_frame.east - self.east) ** 2 + 
-				(vehicle.location.local_frame.down) ** 2))
+				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+				(self.vehicle.location.local_frame.down) ** 2))
 			# Collect data using NS3
 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
 		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=true"],  stdout=sb.DEVNULL)
@@ -262,11 +271,11 @@ class CollectData(Command):
 
 		# If return on comms process was successful, set success-flag
 		if rc == 0:
-			global data_collected
-			if data_collected is None:
-				data_collected = 0
+			#global data_collected
+			if self.data_collected is None:
+				self.data_collected = 0
 			print("Successfully collected 5000000 from node " + str(self.node_ID))
-			data_collected += 5000000
+			self.data_collected += 5000000
 			self.collect_success.set()
 		# else, leave success-flag unset
 		else:
@@ -303,7 +312,8 @@ class MoveAndCollectData(Command):
 			The node info file lists the nodes in the WSN. Each line contains one node. Coordinates are relative to home locations.
 				[node number] [IP address] [sensor data size] [relative x] [relative y]
 	'''
-	def __init__(self, node, alt, power, algorithm = "DEFAULT", node_path = "sample_wsn_mission/node_info.txt"):
+	def __init__(self, node, alt, power, vehicle, algorithm = "DEFAULT", node_path = "sample_wsn_mission/node_info.txt", sim = False):
+
 		self.node_ID = node
 		self.power = power
 		self.east = 0
@@ -311,9 +321,14 @@ class MoveAndCollectData(Command):
 		self.up = alt
 		self.node_hostname = None
 		self.node_collect_time = None
+    
+		self.data_collected = 0
+		self.vehicle = vehicle
+		self.running_sim = sim
 		self.algorithm = algorithm
 		self.node_path = node_path
 		# Find data about this node
+    
 		file1 = open(self.node_path,"r+")
 		for aline in file1:
 			values = aline.split()
@@ -324,6 +339,7 @@ class MoveAndCollectData(Command):
 				self.north = float(values[4])
 				break
 		file1.close()
+    
 		self.collect_success = False
 		self.stopped_at_point = False
 		# Thread event for collection complete
@@ -334,7 +350,7 @@ class MoveAndCollectData(Command):
 	def begin(self):
 		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
-		vehicle.mode = VehicleMode('GUIDED')
+		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 
 	def update(self):
@@ -360,8 +376,6 @@ class MoveAndCollectData(Command):
 				print("Stopping at node for data collection")
 				self.stopped_at_point = True
 			else: 
-				# Still cannot talk to node...
-				
 				#  Check if we reached the node
 				if target_dist < 0.5:
 					# Reached node, could not connect...
@@ -378,11 +392,11 @@ class MoveAndCollectData(Command):
 		# Start comms process with 0 wait time, wait for response
 		
 		# Are we running the simulation?
-		if running_sim:
+		if self.running_sim:
 			dist_to_node = abs(math.sqrt(
-				(vehicle.location.local_frame.north - self.north) ** 2 + 
-				(vehicle.location.local_frame.east - self.east) ** 2 + 
-				(vehicle.location.local_frame.down) ** 2))
+				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+				(self.vehicle.location.local_frame.down) ** 2))
 			# Attempt to contact node using NS3, disable delay, set data to 1 byte
 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
 		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=false"], stdout=sb.DEVNULL)
@@ -400,8 +414,8 @@ class MoveAndCollectData(Command):
 		# If return on comms process was successful, return true
 		if rc == 0:
 			print("Successfully collected 5000000 from node " + str(self.node_ID))
-			global data_collected
-			data_collected += 5000000
+			#global data_collected
+			self.data_collected += 5000000
 			return True
 		# else, return false
 		else:
@@ -420,140 +434,28 @@ class MoveAndCollectData(Command):
 		
 	def collection_success(self):
 		return self.collect_success
-
-# class MoveAndCollectDataNaive(Command):
-# 	# Attempt to collect data from node, while moving towards the node 
-# 	# at altitude alt, with node communication range node_range (for simulation)
-# 	def __init__(self, node, alt, power):
-# 		self.node_ID = node
-# 		self.power = power
-# 		self.east = 0
-# 		self.north = 0
-# 		self.up = alt
-# 		self.node_hostname = None
-# 		self.node_collect_time = None
-# 		# Find data about this node
-# 		file1 = open(path + "node_info.txt","r+")
-# 		for aline in file1:
-# 			values = aline.split()
-# 			if int(values[0]) == self.node_ID:
-# 				self.node_hostname = values[1]
-# 				self.node_collect_time = int(values[2])
-# 				self.east = float(values[3])
-# 				self.north = float(values[4])
-# 				break
-# 		file1.close()
-# 		self.collect_success = False
-# 		self.stopped_at_point = False
-# 		# Thread event for collection complete
-# 		self.collect_complete = Event()
-# 		self.collect_complete.clear()
-# 		self.thread = None
-
-# 	def begin(self):
-# 		print("Starting move-collect command for node ", self.node_ID)
-# 		# Move towards the node
-# 		vehicle.mode = VehicleMode('GUIDED')
-# 		goto_position_target_local_enu(self.east, self.north, self.up)
-
-# 	def update(self):
-# 		# Check if we found data on this node
-# 		if self.node_collect_time is not None:
-
-# 			# Find Distance to node
-# 			target_dist = abs(math.sqrt(
-# 					(vehicle.location.local_frame.north - self.north) ** 2 + 
-# 					(vehicle.location.local_frame.east - self.east) ** 2 + 
-# 					(vehicle.location.local_frame.down + self.up) ** 2))
-# 			# Attempt to communicate with this node
-# 			if not self.collect_success and self.launchCollection():
-# 				print("Connected to node, starting data collection")
-# 				# Made contact, collect data
-# 				self.collect_success = True
-# 				self.thread = Thread(target=self.collection_thread)
-# 				self.thread.start()
-# 				holder.add_thread(self.thread)
-# 			elif self.collect_success and target_dist < 0.5 and not self.stopped_at_point:
-# 				send_stop()
-# 				print("Stopping at node for data collection")
-# 				self.stopped_at_point = True
-# 			else:
-# 				# Still cannot talk to node...
-# 				#  Check if we reached the node
-# 				if target_dist < 0.5 and not self.collect_success:
-# 					# Reached node, could not connect...
-# 					self.collect_complete.set()
-# 			#Stop if collecting and have reached the waypoint
-			
-# 		else:
-# 			print("ERROR: failed to find node " + str(self.node_ID) + " info")
-# 			# Set complete-flag
-# 			self.collect_complete.set()
-
-# 	def launchCollection(self):
-# 		# Start comms process with 0 wait time, wait for response
-		
-# 		# Are we running the simulation?
-# 		if running_sim:
-# 			dist_to_node = abs(math.sqrt(
-# 				(vehicle.location.local_frame.north - self.north) ** 2 + 
-# 				(vehicle.location.local_frame.east - self.east) ** 2 + 
-# 				(vehicle.location.local_frame.down) ** 2))
-# 			# Attempt to contact node using NS3, disable delay, set data to 1 byte
-# 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), "--payload=5000000", 
-# 		    	"--txpower="+str(self.power), "--delay=false"])
-# 			child.communicate()[0]
-# 			rc = child.returncode
-# 		else:
-# 			# Attempt to contact node using collect_data executable with transmission time = 0
-# 			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
-# 		    	stdout=sb.DEVNULL)
-# 			holder.add_process(child)
-# 			child.communicate()[0]
-# 			rc = child.returncode
-
-# 		# If return on comms process was successful, return true
-# 		if rc == 0:
-# 			global data_collected
-# 			print("Successfully collected 5000000 from node " + str(self.node_ID))
-# 			data_collected += 5000000
-# 			return True
-# 		# else, return false
-# 		else:
-# 			print("failed to collect from node " + str(self.node_ID))
-# 			return False
-
-# 	def collection_thread(self):
-# 		time.sleep(self.node_collect_time/1000.0)
-# 		self.collect_complete.set()
-
-# 	def is_done(self):
-# 		if self.collect_complete.is_set():
-# 			return True
-# 		else:
-# 			return False
 		
 # 	def collection_success(self):
 # 		return self.collect_success
 
 
-def land_in_place():
-	vehicle.mode = VehicleMode("LAND")
+def land_in_place(passed_vehicle):
+	passed_vehicle.mode = VehicleMode("LAND")
 	print("Landing")
 
 	# Wait until the vehicle reaches the ground
 	while True:
 		# print(" Altitude: ", vehicle.location.global_relative_frame.alt)
-		if vehicle.location.global_relative_frame.alt < 0.1:
+		if passed_vehicle.location.global_relative_frame.alt < 0.1:
 			print("Landed")
 			break
 		time.sleep(1)
 
-	vehicle.close()
+	passed_vehicle.close()
 
-def goto_position_target_local_enu(east, north, up):
+def goto_position_target_local_enu(east, north, up, passed_vehicle):
 	down = -up
-	msg = vehicle.message_factory.set_position_target_local_ned_encode(
+	msg = passed_vehicle.message_factory.set_position_target_local_ned_encode(
 			0,      # time_boot_ms (not used)
 			0, 0,   # target system, target component
 			mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
@@ -562,13 +464,13 @@ def goto_position_target_local_enu(east, north, up):
 			0, 0, 0, # NED velocities
 			0, 0, 0, # NED accelerations (not supported),
 			0, 0)    # yaw, yaw_rate (not supported)
-	vehicle.send_mavlink(msg)
+	passed_vehicle.send_mavlink(msg)
 
-def send_stop():
+def send_stop(passed_vehicle):
 	"""
 	Move vehicle in direction based on specified velocity vectors.
 	"""
-	msg = vehicle.message_factory.set_position_target_global_int_encode(
+	msg = passed_vehicle.message_factory.set_position_target_global_int_encode(
 		0,       # time_boot_ms (not used)
 		0, 0,    # target system, target component
 		mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, # frame
@@ -583,4 +485,4 @@ def send_stop():
 		0, 0, 0, # afx, afy, afz acceleration (not supported yet, ignored in GCS_Mavlink)
 		0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
 	# Send message once
-	vehicle.send_mavlink(msg)
+	passed_vehicle.send_mavlink(msg)
