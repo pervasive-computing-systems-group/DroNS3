@@ -118,5 +118,5 @@ if __name__ == '__main__':
 
 	# sys.exit(0)
 	w = Wrapper()
-	w.start_next_mission(mission=missions.CollectWSNData(algorithm = "ONLINE"))
+	w.start_next_mission(mission=missions.General(w.vehicle, mission_file="mission.pln", debug = True))
 	

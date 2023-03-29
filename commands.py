@@ -92,6 +92,26 @@ class GainAlt(Command):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
 		return diff < 0.5
 
+class Wait(Command):
+	def __init__(self, wait_time, passed_vehicle):
+
+		self.wait_time = wait_time
+		self.start_time = 0
+		self.vehicle = passed_vehicle
+		self.time_elapsed = 0
+
+	def begin(self):
+		self.start_time = time.time()
+	
+	def is_done(self):
+		self.time_elapsed = time.time() - self.start_time
+
+		if self.time_elapsed >= self.wait_time:
+			return True
+		return False
+	
+
+
 #TODO: Refactor data_collected - also what does this even do? Consider if this is even needed or if there is a better way to do this.
 class StartTimer(Command):
 	def __init__(self):
@@ -182,7 +202,7 @@ class ReturnHome(Command):
 
 	def begin(self):
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
@@ -197,7 +217,7 @@ class Land(Command):
 		self.vehicle = passed_vehicle
 
 	def begin(self):
-		land_in_place()
+		land_in_place(self.vehicle)
 
 	def is_done(self):
 		return self.vehicle.location.global_relative_frame.alt < 0.1
