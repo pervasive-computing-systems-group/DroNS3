@@ -15,11 +15,11 @@ We should try to make all filepaths passed rather than hardcoded - or in the def
 '''
 
 
-
+#returns x and y positions of vehicle
 def get_xy(passed_vehicle):
 	return [passed_vehicle.location.local_frame.east, passed_vehicle.location.local_frame.north]
 
-
+#parent class command
 class Command(object):
 	__metaclass__ = abc.ABCMeta
 
@@ -37,6 +37,7 @@ class Command(object):
 	def is_done(self):
 		pass
 
+#takeoff of vehicle to a certain altitude
 #TODO: Research vehicle.simple_takeoff and other takeoff techniques
 class GainAlt(Command):
 	def __init__(self, target_altitude, passed_vehicle):
@@ -59,7 +60,7 @@ class GainAlt(Command):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
 		return diff < 0.5
 
-#TODO: Refactor data_collected - also what does this even do? Consider if this is even needed or if there is a better way to do this.
+#TODO: what does this even do? Consider if this is even needed or if there is a better way to do this.
 class StartTimer(Command):
 	def __init__(self):
 		self.data_collected = 0
@@ -80,9 +81,11 @@ class StopTimer(Command):
 	def is_done(self):
 		return True
 
-#TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
+#TODO: 
 # Enable tolerance as an optional param
-class MoveToWaypoint(Command): #used to be WaypointDist
+
+#moving towards a waypoint until particular tolerance
+class MoveToWaypoint(Command): 
 	def __init__(self, east, north, up, tolerance, passed_vehicle):
 		self.east = east
 		self.north = north
@@ -99,7 +102,7 @@ class MoveToWaypoint(Command): #used to be WaypointDist
 			(self.vehicle.location.local_frame.east - self.east) ** 2 + 
 			(self.vehicle.location.local_frame.down + self.up) ** 2))
 		return target_dist < 0.5
-	def goto_position_target_local_enu(self, east, north, up, passed_vehicle): #put into Waypoint dist
+	def goto_position_target_local_enu(self, east, north, up, passed_vehicle): 
 		down = -up
 		msg = passed_vehicle.message_factory.set_position_target_local_ned_encode(
 			0,      # time_boot_ms (not used)
@@ -177,6 +180,19 @@ class Land(Command):
 
 	def begin(self):
 		land_in_place()
+		#self.vehicle.mode = VehicleMode("LAND")
+		#print("Landing")
+
+		# Wait until the vehicle reaches the ground
+		#while True:
+			# print(" Altitude: ", vehicle.location.global_relative_frame.alt)
+		#	if self.vehicle.location.global_relative_frame.alt < 0.1:
+		#		print("Landed")
+		#		break
+		#	time.sleep(1)
+
+		#self.vehicle.close()
+		
 
 	def is_done(self):
 		return self.vehicle.location.global_relative_frame.alt < 0.1
