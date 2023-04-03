@@ -237,7 +237,7 @@ class Land(Command):
 #TODO: Potentially refactor Collect Data to include MoveAndCollectData
 class CollectData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)
-	def __init__(self, node, power,  passed_vehicle, mpath, telem, sim = False):
+	def __init__(self, node, power,  vehicle, mpath, telem, sim = False, comm_path = None):
 		self.data = telem
 		self.node_ID = node
 		self.power = power
@@ -247,8 +247,9 @@ class CollectData(Command):
 		self.node_hostname = None
 		self.node_collect_time = None
 		self.running_sim = sim
-		self.vehicle = passed_vehicle
+		self.vehicle = vehicle
 		self.path = mpath
+		self.communication_path = comm_path
 		# Find data about this node
 		file1 = open( self.path)
 		for aline in file1:
@@ -294,12 +295,19 @@ class CollectData(Command):
 			child.communicate()[0]
 			rc = child.returncode
 		else:
+			if self.communication_path is not None:
 			# Collect data using collect_data executable
-			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), 
-		     	str(self.node_hostname), str(self.node_collect_time)], stdout=sb.DEVNULL)
-			holder.add_process(child)
-			child.communicate()[0]
-			rc = child.returncode
+				try:
+					child = sb.Popen([self.communication_path, str(self.node_ID), 
+						str(self.node_hostname), str(self.node_collect_time)], stdout=sb.DEVNULL)
+					holder.add_process(child)
+					child.communicate()[0]
+					rc = child.returncode
+				except Exception:
+					print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+				
+			else:
+				print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
 
 		# If return on comms process was successful, set success-flag
 		if rc == 0:
