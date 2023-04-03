@@ -25,7 +25,7 @@ class Custom_Command(commands.Command):
 		for i in range(0,len(self.args), 3):
 			command = commands.MoveToWaypoint(self.args[i], self.args[i+1], self.args[i+2], self.vehicle, debug = self.debug)
 			self.mission.q.appendleft(command)
-		print(self.mission.q)
+			
 		self.done = True
 
 	def is_done(self):

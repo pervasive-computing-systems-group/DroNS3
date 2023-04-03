@@ -234,6 +234,89 @@ class Land(Command):
 	def is_done(self):
 		return self.vehicle.location.global_relative_frame.alt < 0.1
 
+class CollectDataGeneral(Command):
+
+	def __init__(self, node_east, node_north, node_up, power, vehicle, telem, sim = False, comm_path = None, payload = 500000, delay = True):
+		self.data = telem
+		self.node_east = node_east
+		self.node_north = node_north
+		self.node_up = node_up
+		self.power = power
+		self.east = 0
+		self.north = 0
+		self.thread = None
+		self.node_hostname = None
+		self.node_collect_time = None
+		self.running_sim = sim
+		self.vehicle = vehicle
+		self.communication_path = comm_path
+
+		self.payload = payload
+		self.delay = delay
+
+
+		self.collect_success = Event()
+		self.collect_success.clear()
+		self.collect_complete = Event()
+		self.collect_complete.clear()
+	
+	def launchCollection(self):
+		# Start comms process, wait for response
+		#print("Starting data collection process")
+	
+		# Are we running the simulation?
+		if self.running_sim:
+			dist_to_node = abs(math.sqrt(
+				(self.vehicle.location.local_frame.north - self.node_north) ** 2 + 
+				(self.vehicle.location.local_frame.east - self.node_east) ** 2 + 
+				(self.vehicle.location.local_frame.down + self.node_up) ** 2))
+			# Collect data using NS3
+			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
+		     	"--payload="+str(self.payload), "--txpower="+str(self.power), "--delay=" + "true" if self.delay else "false"],  stdout=sb.DEVNULL)
+			holder.add_process(child)
+			child.communicate()[0]
+			rc = child.returncode
+		else:
+			if self.communication_path is not None:
+			# Collect data using collect_data executable
+				try:
+					child = sb.Popen([self.communication_path, str(self.node_ID), 
+						str(self.node_hostname), str(self.node_collect_time)], stdout=sb.DEVNULL)
+					holder.add_process(child)
+					child.communicate()[0]
+					rc = child.returncode
+				except Exception:
+					print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+				
+			else:
+				print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
+
+		# If return on comms process was successful, set success-flag
+		if rc == 0:
+			#global data_collected
+			if self.data.data_collected is None:
+				self.data.data_collected = 0
+			print("Successfully collected 5000000 from node " + str(self.node_ID))
+			self.data.data_collected += 5000000
+			self.collect_success.set()
+		# else, leave success-flag unset
+		else:
+			print("failed to collect from node " + str(self.node_ID))
+		
+		# Set complete-flag, rejoin
+		self.collect_complete.set()
+
+	def is_done(self):
+		if self.collect_complete.is_set():
+			if self.thread is not None:
+				self.thread.join()
+			return True
+		else:
+			return False
+		
+	def collection_success(self):
+		return self.collect_success.is_set()
+
 #TODO: Potentially refactor Collect Data to include MoveAndCollectData
 class CollectData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)

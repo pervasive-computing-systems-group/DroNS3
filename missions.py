@@ -367,6 +367,8 @@ class General(Mission):
 				self.q.append(commands.Land(self.vehicle, debug = debug))
 			elif c[0] == "4":
 				self.q.append(commands.Wait(float(c[1]), self.vehicle, debug=debug))
+			elif c[0] == "5":
+				self.q.append(commands.CollectData())
 			elif custom_commands is None:
 					if debug:
 						print("No custom commands")
