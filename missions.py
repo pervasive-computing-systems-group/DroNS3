@@ -12,6 +12,7 @@ import math
 import signal
 from solver import LKH_Solver
 from telemetry import WSNData
+import telemetry
 
 '''
 TODO:
@@ -336,14 +337,16 @@ class General(Mission):
 				3
 			4: Wait - the drone waits a specified time (float).
 				4 <wait_time>
-			5 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
+			5: Collect Data - TODO Write this.
+			6 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
 			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a refrence to the mission,
 			and a single array object who's elements are the intended parameters. 
 			
 	'''
 	name = "GENERAL"
-	def __init__(self, vehicle, mission_file = "mission.pln", debug = False, custom_commands = None):
+	def __init__(self, vehicle, mission_file = "mission.pln", debug = False, custom_commands = None, is_sim = False, telem = None):
 		self.vehicle = vehicle
+		self.telemetry = telem
 		with open(mission_file) as mf:
 			command_list = mf.readlines()
 
@@ -368,12 +371,19 @@ class General(Mission):
 			elif c[0] == "4":
 				self.q.append(commands.Wait(float(c[1]), self.vehicle, debug=debug))
 			elif c[0] == "5":
-				self.q.append(commands.CollectData())
+				if self.telemetry is None:
+					self.telemetry = telemetry.NetworkData()
+				if(len(c) == 5):
+					self.q.append(commands.CollectDataGeneral(float(c[1]), float(c[2]), float(c[3]), float(c[4]),self.vehicle, self.telemetry, sim = is_sim))
+				if(len(c) == 6):
+					self.q.append(commands.CollectDataGeneral(float(c[1]), float(c[2]), float(c[3]), float(c[4]), self.vehicle, self.telemetry, sim = is_sim, payload = float(c[5])))
+				if(len(c) == 7):
+					self.q.append(commands.CollectDataGeneral(float(c[1]), float(c[2]), float(c[3]), float(c[4]), self.vehicle, self.telemetry, sim = is_sim, payload = float(c[5]), delay = True if c[6] == "true" else False))
 			elif custom_commands is None:
 					if debug:
 						print("No custom commands")
-			elif int(c[0]) > 4:
-				command = custom_commands[int(c[0]) - 5]
+			elif int(c[0]) > 5:
+				command = custom_commands[int(c[0]) - 6]
 
 				for i in range(1, len(c)):
 					c[i] = float(c[i])

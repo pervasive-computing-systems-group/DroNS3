@@ -236,7 +236,7 @@ class Land(Command):
 
 class CollectDataGeneral(Command):
 
-	def __init__(self, node_east, node_north, node_up, power, vehicle, telem, sim = False, comm_path = None, payload = 500000, delay = True):
+	def __init__(self, node_east, node_north, node_up, power, vehicle, telem, sim = False, payload = 500000, delay = True):
 		self.data = telem
 		self.node_east = node_east
 		self.node_north = node_north
@@ -249,7 +249,7 @@ class CollectDataGeneral(Command):
 		self.node_collect_time = None
 		self.running_sim = sim
 		self.vehicle = vehicle
-		self.communication_path = comm_path
+		self.communication_path = defines.Comms_Path
 
 		self.payload = payload
 		self.delay = delay
@@ -296,8 +296,8 @@ class CollectDataGeneral(Command):
 			#global data_collected
 			if self.data.data_collected is None:
 				self.data.data_collected = 0
-			print("Successfully collected 5000000 from node " + str(self.node_ID))
-			self.data.data_collected += 5000000
+			print("Successfully collected " + str(self.payload) + " from node " + str(self.node_ID))
+			self.data.data_collected += self.payload
 			self.collect_success.set()
 		# else, leave success-flag unset
 		else:

@@ -6,3 +6,5 @@ MISSION_PATH = "/home/minespecs/RDS/sample_wsn_mission/"
 LKH_PATH = "/home/minespecs/Documents/LKH-3.0.8/LKH"
 #Enables debug prints
 debug = True
+#Communications Protocol PAth
+Comms_Path = None
