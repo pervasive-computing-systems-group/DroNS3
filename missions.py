@@ -356,17 +356,17 @@ class General(Mission):
 			elif c[0] == "1":
 				#MoveToWaypoint
 				if len(c) == 4:
-					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle))
+					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, debug = debug))
 				elif len(c) == 5:
-					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, tolerance = float(c[4])))
+					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, tolerance = float(c[4]), debug = debug))
 			elif c[0] == "2":
 				#Return home
-				self.q.append(commands.ReturnHome(float(c[1]), self.vehicle))
+				self.q.append(commands.ReturnHome(float(c[1]), self.vehicle, debug = debug))
 			elif c[0] == "3":
 				#Land
-				self.q.append(commands.Land(self.vehicle))
+				self.q.append(commands.Land(self.vehicle, debug = debug))
 			elif c[0] == "4":
-				self.q.append(commands.Wait(float(c[1]), self.vehicle))
+				self.q.append(commands.Wait(float(c[1]), self.vehicle, debug=debug))
 			elif custom_commands is None:
 					if debug:
 						print("No custom commands")
