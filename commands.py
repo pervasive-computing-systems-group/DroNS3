@@ -92,6 +92,29 @@ class GainAlt(Command):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
 		return diff < 0.5
 
+class Wait(Command):
+	def __init__(self, wait_time, passed_vehicle, debug = False):
+
+		self.wait_time = wait_time
+		self.start_time = 0
+		self.vehicle = passed_vehicle
+		self.time_elapsed = 0
+		self.debug = debug
+
+	def begin(self):
+		self.start_time = time.time()
+		if self.debug:
+			print("Waiting " + str(self.wait_time) + " seconds")
+	
+	def is_done(self):
+		self.time_elapsed = time.time() - self.start_time
+
+		if self.time_elapsed >= self.wait_time:
+			return True
+		return False
+	
+
+
 #TODO: Refactor data_collected - also what does this even do? Consider if this is even needed or if there is a better way to do this.
 class StartTimer(Command):
 	def __init__(self):
@@ -116,14 +139,17 @@ class StopTimer(Command):
 #TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
 # Enable tolerance as an optional param
 class MoveToWaypoint(Command): #used to be WaypointDist
-	def __init__(self, east, north, up, passed_vehicle, tolerance = 0.5):
+	def __init__(self, east, north, up, passed_vehicle, tolerance = 0.5, debug = False):
 		self.east = east
 		self.north = north
 		self.up = up
 		self.vehicle = passed_vehicle
+		self.debug = debug
 
 	def begin(self):
 		self.vehicle.mode = VehicleMode('GUIDED')
+		if self.debug:
+			print("Moving to " + str(self.east) + ", " + str(self.north) + ", " + str(self.up))
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 
 	def is_done(self):
@@ -174,15 +200,18 @@ class Idle(Command):
 
 #TODO: Refactor to use code from WaypointDist command - no reason to have another one.
 class ReturnHome(Command):
-	def __init__(self, alt, passed_vehicle):
+	def __init__(self, alt, passed_vehicle, debug = False):
 		self.east = 0
 		self.north = 0
 		self.up = alt
 		self.vehicle = passed_vehicle
+		self.debug = debug
 
 	def begin(self):
+		if self.debug:
+			print("Returning to " + str(self.east) + ", " + str(self.north) + ", " + str(self.up))
 		self.vehicle.mode = VehicleMode('GUIDED')
-		goto_position_target_local_enu(self.east, self.north, self.up)
+		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
@@ -193,11 +222,14 @@ class ReturnHome(Command):
 
 #TODO: change land_in_place function - we can have the code inside this object and anything that needs it can access it that way.
 class Land(Command):
-	def __init__(self, passed_vehicle):
+	def __init__(self, passed_vehicle, debug = False):
 		self.vehicle = passed_vehicle
+		self.debug = debug
 
 	def begin(self):
-		land_in_place()
+		if self.debug:
+			print("Landing . . .")
+		land_in_place(self.vehicle)
 
 	def is_done(self):
 		return self.vehicle.location.global_relative_frame.alt < 0.1

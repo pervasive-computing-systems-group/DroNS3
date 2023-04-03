@@ -319,6 +319,64 @@ class CollectWSNData(Mission):
 		super(CollectWSNData, self).update()
 
 
+class General(Mission):
 
+	'''
+		General is a Mission subclass that takes a mission file with one command on each line. Each command consists of an integer representing 
+		a command, and the number of required (or optional) parameters deliniated by spaces.
 
+		Commands:
+			0: GainAlt - the drone gains target_altitude (float) meters in altitude. 
+				0 <target_altitude>
+			1: MoveToWaypoint - the drone moves to the specified location with an optional tolerance parameter.
+				1 <east> <north> <up> [tolerance]
+			2: ReturnHome - the drone returns to its home location at the specified altitude (float).
+				2 <altitude>
+			3: Land - the drone decreases its altitude until it reaches the ground. There are no other parameters for this command.
+				3
+			4: Wait - the drone waits a specified time (float).
+				4 <wait_time>
+			5 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
+			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a refrence to the mission,
+			and a single array object who's elements are the intended parameters. 
+			
+	'''
+	name = "GENERAL"
+	def __init__(self, vehicle, mission_file = "mission.pln", debug = False, custom_commands = None):
+		self.vehicle = vehicle
+		with open(mission_file) as mf:
+			command_list = mf.readlines()
+
+		for c in command_list:
+			c = c.split()
+
+			if c[0] == "0":
+				#Gain_Alt command
+				self.q.append(commands.GainAlt(float(c[1]), self.vehicle))
+			elif c[0] == "1":
+				#MoveToWaypoint
+				if len(c) == 4:
+					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, debug = debug))
+				elif len(c) == 5:
+					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, tolerance = float(c[4]), debug = debug))
+			elif c[0] == "2":
+				#Return home
+				self.q.append(commands.ReturnHome(float(c[1]), self.vehicle, debug = debug))
+			elif c[0] == "3":
+				#Land
+				self.q.append(commands.Land(self.vehicle, debug = debug))
+			elif c[0] == "4":
+				self.q.append(commands.Wait(float(c[1]), self.vehicle, debug=debug))
+			elif custom_commands is None:
+					if debug:
+						print("No custom commands")
+			elif int(c[0]) > 4:
+				command = custom_commands[int(c[0]) - 5]
+
+				for i in range(1, len(c)):
+					c[i] = float(c[i])
+
+				self.q.append(command(self.vehicle, self, c[1:]))
+			
+		self.command = self.q.popleft()
 

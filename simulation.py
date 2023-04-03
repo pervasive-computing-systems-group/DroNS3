@@ -11,112 +11,28 @@ from mission_wrapper import Wrapper
 # sim_vehicle.py -f quad -L CSM_SurveyField --console --map --osd
 # 
 
-## For simulation
-#-- Define the function for takeoff
-#TODO: Include guided_and_arm and init as functions in Missions/Commands (not sure which at this point makes more sense)
-def guided_and_arm():
-	print("Set Mode to GUIDED")
-	vehicle.mode = VehicleMode("GUIDED")
-	print("Arming motors")
-	vehicle.armed = True
-	while not vehicle.mode.name=='GUIDED' and not vehicle.armed:
-		print(" Getting ready to take off ...")
-		time.sleep(1)
+class Custom_Command(commands.Command):
 
+	def __init__(self, vehicle, mission, args, debug = False):
+		self.vehicle = vehicle
+		self.mission = mission
+		self.args = args
+		self.done = False
+		self.debug = debug
+		print(self.args)
 
-def init():
-	# We are not running the simulation
-	missions.setSimulation(True)
-	commands.setSimulation(True)
+	def begin(self):
+		for i in range(0,len(self.args), 3):
+			command = commands.MoveToWaypoint(self.args[i], self.args[i+1], self.args[i+2], self.vehicle, debug = self.debug)
+			self.mission.q.appendleft(command)
+		print(self.mission.q)
+		self.done = True
 
-	global state
-	global vehicle
-
-	print("Connect to simulation vehicle")
-	vehicle = connect('localhost:14550', wait_ready=True)
-
-	# Get some vehicle attributes (state)
-	print("Contacted vehicle!")
-
-	# Pass the vehicle to rest of ICCS autopilot
-	missions.pass_vehicle(vehicle)
-	commands.pass_vehicle(vehicle)
-
-	# Get Vehicle Home location - will be `None` until first set by autopilot
-	while not vehicle.home_location:
-		cmds = vehicle.commands
-		cmds.download()
-		cmds.wait_ready()
-		if not vehicle.home_location:
-			print(" Waiting for home location ...")
-
-	# We have a home location
-	print(" Home location: %s" % vehicle.home_location)
-
-	# Program-specific constants and configuration
-	vehicle.airspeed = 10 # m/s
-	vehicle.groundspeed = 10 # m/s
-
-	state = {
-		'mission': None,
-		'is_disabled': False
-	}
-
-#TODO: Include in Missions/Commands
-def start_next_mission(mission=None):
-	if issubclass(type(state['mission']), missions.Mission):
-		print("Terminating mission", state['mission'].name)
-		state['mission'].dispose()
-		while state['mission'].thread.is_alive():
-			time.sleep(0.05)
-	state['mission'] = mission
-	print("Starting mission", state['mission'].name)
-	# For simulation, set GUIDED mode and arm before starting a mission
-	guided_and_arm()
-	state['mission'].start()
-
-def run_sim(iterations, start_seed):
-	for i in range(start_seed, start_seed + iterations):
-		missions.setSeed(i)
-		init()
-		start_next_mission(mission=missions.CollectWSNData())
-		print("Mission Normal Completed")
-		# init()
-		# start_next_mission(mission=missions.CollectWSNDataNaive())
-		# print("Mission 2 Completed")
-		init()
-		start_next_mission(mission=missions.CollectWSNDataNoSub())
-		print("Mission NOSUB Completed")
+	def is_done(self):
+		return self.done
 
 
 if __name__ == '__main__':
-
-	#for i in range(start_seed, start_seed + iterations):
-	# seed = int(sys.argv[1])
-	# path = sys.argv[2]
-	# seed = 0
-	# path = defines.MISSION_PATH
-	# missions.setSeed(seed)
-	# missions.setPath(path)
-	# init()
-	# mission_num = 0
-	# if(mission_num == 0):
-	# 	start_next_mission(mission=missions.CollectWSNData())
-	# 	print("Mission Normal Completed")
-
-	# elif(mission_num == 1):
-	# 	start_next_mission(mission=missions.CollectWSNDataNaive())
-	# 	print("Mission Naive Completed")
-
-	# elif(mission_num == 2):
-	# 	start_next_mission(mission=missions.CollectWSNDataLKH())
-	# 	print("Mission LKH Completed")
-		
-	# elif(mission_num == 3):
-	# 	start_next_mission(mission=missions.CollectWSNDataNoSub())
-	# 	print("Mission NOSUB Completed")
-
-	# sys.exit(0)
 	w = Wrapper()
-	w.start_next_mission(mission=missions.CollectWSNData(algorithm = "ONLINE"))
+	w.start_mission(mission=missions.General(w.vehicle, mission_file="mission.pln", debug = True, custom_commands=[Custom_Command]))
 	

@@ -29,13 +29,12 @@ class Wrapper(object):
         self.pth = Process_Thread_Holder()
         
         self.debug = defines.debug
-        # We are not running the simulation
         missions.setSimulation(True)
         commands.setHolder(self.pth)
         missions.setHolder(self.pth)
 
         seed = 0
-        path = defines.MISSION_PATH
+        # path = defines.MISSION_PATH
         missions.setSeed(seed)
 
         print("Connect to simulation vehicle")
@@ -72,13 +71,15 @@ class Wrapper(object):
 
         signal.signal(signal.SIGINT, self.signal_handler)
 
-    def start_next_mission(self, mission=None):
+    def start_mission(self, mission=None):
         if issubclass(type(self.state['mission']), missions.Mission):
             print("Terminating mission", self.state['mission'].name)
             self.state['mission'].dispose()
             while self.state['mission'].thread.is_alive():
                 time.sleep(0.05)
         self.state['mission'] = mission
+        if mission == None:
+            self.state['mission'] = missions.General(self.vehicle)
         print("Starting mission", self.state['mission'].name)
         # For simulation, set GUIDED mode and arm before starting a mission
         self.guided_and_arm()
