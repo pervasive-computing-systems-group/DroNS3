@@ -379,6 +379,8 @@ class General(Mission):
 					self.q.append(commands.CollectDataGeneral(float(c[1]), float(c[2]), float(c[3]), float(c[4]), self.vehicle, self.telemetry, sim = is_sim, payload = float(c[5])))
 				if(len(c) == 7):
 					self.q.append(commands.CollectDataGeneral(float(c[1]), float(c[2]), float(c[3]), float(c[4]), self.vehicle, self.telemetry, sim = is_sim, payload = float(c[5]), delay = True if c[6] == "true" else False))
+				if(len(c) == 8):
+					self.q.append(commands.CollectDataGeneral(float(c[1]), float(c[2]), float(c[3]), float(c[4]), self.vehicle, self.telemetry, sim = is_sim, payload = float(c[5]), delay = True if c[6] == "true" else False, collection_time = float(c[7])))
 			elif custom_commands is None:
 					if debug:
 						print("No custom commands")

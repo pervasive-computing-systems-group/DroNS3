@@ -236,7 +236,7 @@ class Land(Command):
 
 class CollectDataGeneral(Command):
 
-	def __init__(self, node_east, node_north, node_up, power, vehicle, telem, sim = False, payload = 500000, delay = True):
+	def __init__(self, node_east, node_north, node_up, power, vehicle, telem, sim = False, payload = 500000, delay = True, collect_time = 5000):
 		self.data = telem
 		self.node_east = node_east
 		self.node_north = node_north
@@ -246,7 +246,7 @@ class CollectDataGeneral(Command):
 		self.north = 0
 		self.thread = None
 		self.node_hostname = None
-		self.node_collect_time = None
+		self.node_collect_time = collect_time
 		self.running_sim = sim
 		self.vehicle = vehicle
 		self.communication_path = defines.Comms_Path
@@ -259,10 +259,21 @@ class CollectDataGeneral(Command):
 		self.collect_success.clear()
 		self.collect_complete = Event()
 		self.collect_complete.clear()
+
+	def begin(self):
+		# Create thread for comms process
+		if self.node_collect_time is not None:
+			self.thread = Thread(target=self.launchCollection)
+			self.thread.start()
+			holder.add_thread(self.thread)
+		else:
+			print("ERROR: failed to find node info")
+			# Set complete-flag
+			self.collect_complete.set()
 	
 	def launchCollection(self):
 		# Start comms process, wait for response
-		#print("Starting data collection process")
+		print("Starting data collection process")
 	
 		# Are we running the simulation?
 		if self.running_sim:
@@ -287,16 +298,18 @@ class CollectDataGeneral(Command):
 					rc = child.returncode
 				except Exception:
 					print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+					rc = 1
 				
 			else:
 				print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
+				rc = 1
 
 		# If return on comms process was successful, set success-flag
 		if rc == 0:
 			#global data_collected
 			if self.data.data_collected is None:
 				self.data.data_collected = 0
-			print("Successfully collected " + str(self.payload) + " from node " + str(self.node_ID))
+			print("Successfully collected " + str(self.payload) + " from node", self.node_east, self.node_north, self.node_up)
 			self.data.data_collected += self.payload
 			self.collect_success.set()
 		# else, leave success-flag unset
