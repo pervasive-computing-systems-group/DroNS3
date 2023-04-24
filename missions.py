@@ -167,11 +167,6 @@ class CollectWSNData(Mission):
 
 	name = "WSN_DATA"
 	missed_q = deque()
-
-	CMD_WAYPOINT = 0
-	CMD_COLL_DATA = 1
-	CMD_MSN_ALT = 2
-	start_time = 0
 	end_time = 0
 	
 
@@ -199,18 +194,18 @@ class CollectWSNData(Mission):
 		for aline in file1:
 			values = aline.split()
 			# If cmd = 0 (waypoint)
-			if int(values[0]) == self.CMD_WAYPOINT:
+			if int(values[0]) == commands.CMD_WAYPOINT:
 				# Add waypoint movement to queue
 				self.q.append(commands.MoveToWaypoint(float(values[1]), float(values[2]), float(values[3]), vehicle))
 			# else if cmd = 1 (data collection)
-			elif int(values[0]) == self.CMD_COLL_DATA:
+			elif int(values[0]) == commands.CMD_COLL_DATA:
 				print(values)
 				# TODO: Add a normal-distribution for the nodes range
 				arr = np.random.normal(float(values[2]) - 1, 8, 1)
 				self.nPowers[int(values[1])] = arr[0]
 				# Add collect data command
 				self.q.append(commands.CollectData(int(values[1]), arr[0], vehicle, node_path, self.data, sim = running_sim))
-			elif int(values[0]) == self.CMD_MSN_ALT:
+			elif int(values[0]) == commands.CMD_MSN_ALT:
 				# Set mission altitude
 				self.mission_alt = float(values[1])
 			else:

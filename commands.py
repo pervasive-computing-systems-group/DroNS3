@@ -14,6 +14,11 @@ We should create a telemetry class to collect and retrieve data from Misisons an
 We should try to remove all global variables.
 We should try to make all filepaths passed rather than hardcoded - or in the defines file for any library. 
 '''
+#commands for collectWSNdata
+
+CMD_WAYPOINT = 0
+CMD_COLL_DATA = 1
+CMD_MSN_ALT = 2
 
 # ph = ProcessHandler(debug=defines.debug)
 
@@ -28,25 +33,7 @@ def setHolder(holder_t):
 	global holder 
 	holder = holder_t
 
-#TODO: Refactor into passed object
-#def init_data_collected():
-	#global data_collected
-	#data_collected = 0 - putting these into classes- self.data_collected = 0?
 
-#TODO: Refactor into an optional argument
-#def setSimulation(sim):
-	#global running_sim 
-	#running_sim = sim
-
-#TODO: Refactor into an argument 
-#def pass_vehicle(passed_vehicle):
-#	global vehicle
-#	vehicle = passed_vehicle
-
-#TODO: Refactor into an argument
-#def setPath(mpath):
-#	global path
-#	path = mpath
 
 
 def get_xy(passed_vehicle):
