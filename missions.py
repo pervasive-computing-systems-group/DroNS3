@@ -344,7 +344,7 @@ class General(Mission):
 			
 	'''
 	name = "GENERAL"
-	def __init__(self, vehicle, mission_file = "mission.pln", debug = False, custom_commands = None, is_sim = False, telem = None):
+	def __init__(self, vehicle, mission_file = "sample_wsn_mission/drone_plan.pln", debug = False, custom_commands = None, is_sim = False, telem = None):
 		self.vehicle = vehicle
 		self.telemetry = telem
 		with open(mission_file) as mf:
