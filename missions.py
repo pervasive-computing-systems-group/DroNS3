@@ -86,10 +86,11 @@ class Mission(object):
 		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
 		#TODO: more robust failsafe
 		while not self.terminate:
-			if vehicle.mode == VehicleMode("GUIDED") and vehicle.system_status == "ACTIVE":
+			if vehicle.mode == VehicleMode("GUIDED") and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
 				self.update()
 			else:
 				time.sleep(0.1)
+				print(vehicle.mode, vehicle.system_status)
 				print("Vehicle no longer in guided or in non-stable flight mode")
 
 	# Periodically called to check command status/is-done
