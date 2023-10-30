@@ -28,27 +28,6 @@ def setHolder(holder_t):
 	global holder 
 	holder = holder_t
 
-#TODO: Refactor into passed object
-#def init_data_collected():
-	#global data_collected
-	#data_collected = 0 - putting these into classes- self.data_collected = 0?
-
-#TODO: Refactor into an optional argument
-#def setSimulation(sim):
-	#global running_sim 
-	#running_sim = sim
-
-#TODO: Refactor into an argument 
-#def pass_vehicle(passed_vehicle):
-#	global vehicle
-#	vehicle = passed_vehicle
-
-#TODO: Refactor into an argument
-#def setPath(mpath):
-#	global path
-#	path = mpath
-
-
 def get_xy(passed_vehicle):
 	return [passed_vehicle.location.local_frame.east, passed_vehicle.location.local_frame.north]
 
@@ -138,7 +117,7 @@ class StopTimer(Command):
 
 #TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
 # Enable tolerance as an optional param
-class MoveToWaypoint(Command): #used to be WaypointDist
+class MoveToWaypoint(Command): 
 	def __init__(self, east, north, up, passed_vehicle, tolerance = 0.5, debug = False):
 		self.east = east
 		self.north = north
@@ -365,6 +344,7 @@ class CollectData(Command):
 
 	def begin(self):
 		# Create thread for comms process
+		self.data.start_timer()
 		if self.node_collect_time is not None:
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
@@ -419,11 +399,18 @@ class CollectData(Command):
 		
 		# Set complete-flag, rejoin
 		self.collect_complete.set()
+	
+	def distance_finder(self):
+		return abs(math.sqrt(
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down) ** 2))
 
 	def is_done(self):
 		if self.collect_complete.is_set():
 			if self.thread is not None:
 				self.thread.join()
+			self.data.stop_timer()
 			return True
 		else:
 			return False
