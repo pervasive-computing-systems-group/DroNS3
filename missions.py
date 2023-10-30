@@ -59,7 +59,6 @@ def pass_vehicle(passed_vehicle):
 	global vehicle
 	vehicle = passed_vehicle
 
-
 class Mission(object):
 	__metaclass__ = abc.ABCMeta
 	terminate = False
@@ -165,7 +164,7 @@ class CollectWSNData(Mission):
 
 	'''
 
-
+	#need to add energy budget for this mission 
 	name = "WSN_DATA"
 	missed_q = deque()
 
@@ -176,20 +175,22 @@ class CollectWSNData(Mission):
 	end_time = 0
 	
 
-	def __init__(self, plan_path = "sample_wsn_mission/drone_plan.pln", node_path = "sample_wsn_mission/node_info.txt", output_path = "./", algorithm = "DEFAULT"):
-		
+	def __init__(self, plan_path = "sample_wsn_mission/drone_plan.pln", node_path = "sample_wsn_mission/node_info.txt", output_path = "./", algorithm = "DEFAULT",  speed = 5, b_rate = 500, v_bat = 400, pm = 50, ph = 40):
+		self.sm = b_rate * v_bat / pm # this will be total amount of time drone can travel at max speed
+		self.sh = b_rate * v_bat / pm # this will be total amount of time drone can hover - both of these will be fixed and provided
+		self.energy_budget = self.sm + self.sh #energy budget: time that drone can hover + move
 		self.data = WSNData()
-
+		self.speed = speed
 		self.plan_path = plan_path
 		self.algorithm = algorithm
 		self.output_path = output_path
 		self.node_path = node_path
-
 		# Set random seed for consistancy
 		np.random.seed(seed)
 		self.mission_alt = 50
 		# Add take-off command
 		self.q.append(commands.GainAlt(self.mission_alt, vehicle))
+		self.energy_budget -= self.mission_alt/speed
 		# Add Timer-Start command
 		self.q.append(commands.StartTimer())
 		# Get list of commands from file
@@ -231,8 +232,16 @@ class CollectWSNData(Mission):
 
 	def update(self):
 		if isinstance(self.command, commands.CollectData):
+			self.data.start_timer()
 			# Check if we are done collecting data
 			if self.command.is_done():
+				#Now able to keep track of running total time every time a command is executed
+				self.data.stop_timer()
+				self.dist_to_node = commands.CollectData.distance_finder(self.command) 
+				self.energy_budget -= self.dist_to_node/self.speed
+				self.energy_budget -= self.data.total_time * (self.sm/self.sh)
+				print(self.energy_budget)
+				
 				# Finished, check is collection was successful
 				if self.command.collection_success():
 					print("Total collected data: " + str(self.data.data_collected))
