@@ -13,7 +13,7 @@ import signal
 from solver import LKH_Solver
 from telemetry import WSNData
 import telemetry
-
+import energy_budget
 '''
 TODO:
 
@@ -175,10 +175,14 @@ class CollectWSNData(Mission):
 	end_time = 0
 	
 
-	def __init__(self, plan_path = "sample_wsn_mission/drone_plan.pln", node_path = "sample_wsn_mission/node_info.txt", output_path = "./", algorithm = "DEFAULT",  speed = 5, b_rate = 500, v_bat = 400, pm = 50, ph = 40):
-		self.sm = b_rate * v_bat / pm # this will be total amount of time drone can travel at max speed
-		self.sh = b_rate * v_bat / pm # this will be total amount of time drone can hover - both of these will be fixed and provided
+	def __init__(self, plan_path = "sample_wsn_mission/drone_plan.pln", node_path = "sample_wsn_mission/node_info.txt", output_path = "./", algorithm = "DEFAULT",  speed = 10, b_rate = 72, v_bat = 15, pm = 50, ph = 40):
+		#self.sm = b_rate * v_bat / pm # this will be total amount of time drone can travel at max speed
+		#self.sh = b_rate * v_bat / pm # this will be total amount of time drone can hover - both of these will be fixed and provided
+		self.sm = 750 #750 is what it probably should be based on jonathan's code for other thing 
+		self.sh = 14*60 #14*60 based on jonathan code
 		self.energy_budget = self.sm + self.sh #energy budget: time that drone can hover + move
+		self.initial_budget = self.energy_budget
+		self.budget_percent = energy_budget.EnergyBudget(self)
 		self.data = WSNData()
 		self.speed = speed
 		self.plan_path = plan_path
@@ -230,18 +234,33 @@ class CollectWSNData(Mission):
 		print("Node power settings")
 		print(self.nPowers)
 
+	def pop_loop(self):
+		return_dist = commands.ReturnHome.distance_finder(self.command)
+		cost_to_home = self.cost + self.mission_alt/self.speed  + return_dist/self.speed
+		print("cost to home", cost_to_home)
+		while (cost_to_home) > self.energy_budget: 
+				if len(self.q) > 3:
+					self.q.popleft()
+					if self.command != commands.CollectData:
+						if self.command == commands.MoveToWaypoint:
+							self.cost = commands.MoveToWaypoint.distance_finder(self.command)/self.speed
+						elif self.command == commands.MoveAndCollectData:
+							self.cost = commands.MoveAndCollectData.distance_finder(self.command)/self.speed
+					else:
+						self.cost = commands.CollectData.distance_finder(self.command)/self.speed + self.sm/self.sh #estimate
+					cost_to_home = self.cost + self.mission_alt/self.speed + return_dist/self.speed
+				else:
+					break
 	def update(self):
 		if isinstance(self.command, commands.CollectData):
-			self.data.start_timer()
+			self.cost = self.command.cost/self.speed
 			# Check if we are done collecting data
 			if self.command.is_done():
-				#Now able to keep track of running total time every time a command is executed
-				self.data.stop_timer()
-				self.dist_to_node = commands.CollectData.distance_finder(self.command) 
-				self.energy_budget -= self.dist_to_node/self.speed
-				self.energy_budget -= self.data.total_time * (self.sm/self.sh)
+				print(self.command.time)
+				self.pop_loop()
+				self.energy_budget -= self.cost
+				self.energy_budget -= self.command.time * (self.sm/self.sh)
 				print(self.energy_budget)
-				
 				# Finished, check is collection was successful
 				if self.command.collection_success():
 					print("Total collected data: " + str(self.data.data_collected))
@@ -299,14 +318,42 @@ class CollectWSNData(Mission):
 						n = self.missed_q.pop()
 						if self.algorithm != "NO_SUB":
 							print("Added move-collect command")
-							# Add moving-collecting from this node to the command queue
+								# Add moving-collecting from this node to the command queue
 							self.q.appendleft(commands.MoveAndCollectData(n, self.mission_alt, self.nPowers[n], vehicle, self.data, algorithm = "NAIVE" if self.algorithm == "NAIVE" else "Default", node_path = self.node_path, sim = running_sim))
+							
 		# Check to see if we just finished a move-collect command
+		
 		if isinstance(self.command, commands.MoveAndCollectData):
+			self.cost = self.command.cost/self.speed
+			# Check if we are done collecting data
+			if self.command.is_done():
+				self.pop_loop()
+				self.energy_budget -= self.cost
+				self.energy_budget -= self.command.time * (self.sm/self.sh)
+
+		
 			# Check if this was the last move-collect command
 			if not isinstance(self.q[0], commands.MoveAndCollectData):
 				# TODO: Update the next waypoint
 				pass
+
+		if isinstance(self.command, commands.MoveToWaypoint):
+			self.cost = self.command.cost/self.speed
+			# Check if we are done collecting data
+			if self.command.is_done():
+				self.pop_loop()
+				self.energy_budget -= self.cost
+
+		if isinstance(self.command, commands.ReturnHome):
+			self.cost = self.command.cost/self.speed
+			self.energy_budget -= self.cost
+
+		if isinstance(self.command, commands.Land):
+			self.cost = self.mission_alt/self.speed
+			self.energy_budget -= self.cost
+
+
+		
 		if isinstance(self.command, commands.StartTimer):
 			self.data.start_timer()
 			print("Starting Timer")
@@ -314,7 +361,9 @@ class CollectWSNData(Mission):
 		if isinstance(self.command, commands.StopTimer):
 			self.data.stop_timer()
 			print("Stopping Timer")
-			print(self.data.total_time)
+			e = energy_budget.EnergyBudget(mission = self)
+			self.energy_budget -= self.mission_alt/self.speed
+			print(e.percentBudget())
 			if self.output_path[-1] != "/":
 				self.output_path += "/"
 
@@ -328,6 +377,7 @@ class CollectWSNData(Mission):
 			self.terminate = True
 
 		super(CollectWSNData, self).update()
+
 
 
 class General(Mission):

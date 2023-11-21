@@ -7,6 +7,8 @@ import subprocess as sb
 from threading import Thread, Event
 import defines
 import signal
+from energy_budget import EnergyBudget
+from pymavlink import mavutil
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
 make naming convention more descriptive (Maybe start() is a better name). 
@@ -126,11 +128,18 @@ class MoveToWaypoint(Command):
 		self.debug = debug
 
 	def begin(self):
+		self.cost = self.distance_finder()
 		self.vehicle.mode = VehicleMode('GUIDED')
 		if self.debug:
 			print("Moving to " + str(self.east) + ", " + str(self.north) + ", " + str(self.up))
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 
+	def distance_finder(self):
+		return abs(math.sqrt(
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down) ** 2))
+	
 	def is_done(self):
 		target_dist = abs(math.sqrt(
 			(self.vehicle.location.local_frame.north - self.north) ** 2 + 
@@ -184,6 +193,7 @@ class ReturnHome(Command):
 		self.north = 0
 		self.up = alt
 		self.vehicle = passed_vehicle
+		self.cost = self.distance_finder()
 		self.debug = debug
 
 	def begin(self):
@@ -191,6 +201,13 @@ class ReturnHome(Command):
 			print("Returning to " + str(self.east) + ", " + str(self.north) + ", " + str(self.up))
 		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
+
+	def distance_finder(self):
+		return abs(math.sqrt(
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down) ** 2))
+	
 
 	def is_done(self):
 		target_dist = abs(math.sqrt(
@@ -323,10 +340,11 @@ class CollectData(Command):
 		self.node_collect_time = None
 		self.running_sim = sim
 		self.vehicle = vehicle
-		self.path = mpath
+		self.node_path = mpath
 		self.communication_path = comm_path
+		
 		# Find data about this node
-		file1 = open( self.path)
+		file1 = open( self.node_path)
 		for aline in file1:
 			values = aline.split()
 			if int(values[0]) == self.node_ID:
@@ -343,8 +361,8 @@ class CollectData(Command):
 		self.collect_complete.clear()
 
 	def begin(self):
+		self.cost = self.distance_finder()
 		# Create thread for comms process
-		self.data.start_timer()
 		if self.node_collect_time is not None:
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
@@ -357,7 +375,7 @@ class CollectData(Command):
 	def launchCollection(self):
 		# Start comms process, wait for response
 		#print("Starting data collection process")
-	
+		self.start =  time.time()
 		# Are we running the simulation?
 		if self.running_sim:
 			dist_to_node = abs(math.sqrt(
@@ -397,6 +415,8 @@ class CollectData(Command):
 		else:
 			print("failed to collect from node " + str(self.node_ID))
 		
+		self.end = time.time()
+		self.time = self.end-self.start
 		# Set complete-flag, rejoin
 		self.collect_complete.set()
 	
@@ -410,7 +430,6 @@ class CollectData(Command):
 		if self.collect_complete.is_set():
 			if self.thread is not None:
 				self.thread.join()
-			self.data.stop_timer()
 			return True
 		else:
 			return False
@@ -418,6 +437,7 @@ class CollectData(Command):
 	def collection_success(self):
 		return self.collect_success.is_set()
 
+	
 
 #TODO: Refactor both MoveAndCollectData to contain both.
 class MoveAndCollectData(Command):
@@ -450,6 +470,7 @@ class MoveAndCollectData(Command):
 		self.running_sim = sim
 		self.algorithm = algorithm
 		self.node_path = node_path
+
 		# Find data about this node
     
 		file1 = open(self.node_path,"r+")
@@ -471,6 +492,7 @@ class MoveAndCollectData(Command):
 		self.thread = None
 
 	def begin(self):
+		self.cost = self.distance_finder()
 		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
 		self.vehicle.mode = VehicleMode('GUIDED')
@@ -513,7 +535,7 @@ class MoveAndCollectData(Command):
 
 	def launchCollection(self):
 		# Start comms process with 0 wait time, wait for response
-		
+		self.start = time.time()
 		# Are we running the simulation?
 		if self.running_sim:
 			dist_to_node = abs(math.sqrt(
@@ -539,15 +561,26 @@ class MoveAndCollectData(Command):
 			print("Successfully collected 5000000 from node " + str(self.node_ID))
 			#global data_collected
 			self.data.data_collected += 5000000
+			self.end = time.time()
+			self.time =self.end - self.start
 			return True
 		# else, return false
 		else:
 			print("failed to collect from node " + str(self.node_ID))
+			self.end = time.time()
+			self.time =self.end - self.start
 			return False
+
 
 	def collection_thread(self):
 		time.sleep(self.node_collect_time/1000.0)
 		self.collect_complete.set()
+
+	def distance_finder(self):
+		return abs(math.sqrt(
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down) ** 2))
 
 	def is_done(self):
 		if self.collect_complete.is_set():
