@@ -163,8 +163,6 @@ class CollectWSNData(Mission):
 				NO_SUB: Alters the DEFAULT algorithm by not executing subtours.
 
 	'''
-
-	#need to add energy budget for this mission 
 	name = "WSN_DATA"
 	missed_q = deque()
 
