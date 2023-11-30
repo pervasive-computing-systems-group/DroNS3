@@ -86,7 +86,7 @@ class Mission(object):
 		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
 		#TODO: more robust failsafe
 		while not self.terminate:
-			if vehicle.mode == VehicleMode("GUIDED") and vehicle.system_status == "ACTIVE":
+			if vehicle.mode == VehicleMode("GUIDED"):
 				self.update()
 			else:
 				time.sleep(0.1)
