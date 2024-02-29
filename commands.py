@@ -7,6 +7,8 @@ import subprocess as sb
 from threading import Thread, Event
 import defines
 import signal
+import subprocess
+import sys
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
 make naming convention more descriptive (Maybe start() is a better name). 
@@ -135,6 +137,29 @@ class StopTimer(Command):
 
 	def is_done(self):
 		return True
+
+#Going to be the command to call the Client_Server code for experiments
+class Connect(Command):
+	def __init__(self):
+		self.output_file = open("connection_data.txt", "w") #will write information on connection to this
+		self.bytes_read = 0
+		self.dist_to_pi = abs(math.sqrt(
+			(self.vehicle.location.local_frame.north) ** 2 + 
+			(self.vehicle.location.local_frame.east) ** 2 + 
+			(self.vehicle.location.local_frame.down) ** 2))
+		
+	def connect(self):
+		#compile + make Client_Server
+		subprocess.run(["cd Server_Client && make"], shell = True, check=True)
+		result = subprocess.run([f"cd Server_Client && ./Client/client {defines.IP_ADDRESS} 8080 R"], stdout= subprocess.PIPE, text= True, check = True) #make ip address of rpi
+		if result.returncode == 0:
+			data = result.stdout # need to make sure we can get stdout from piping
+		else:
+			print("ERROR: " + result.stderr)
+		#I think pi will run Server and drone will run Client
+		#Get output of client and output to file along with distance from pi
+		self.output_file.write(self.dist_to_pi + data + "\n") 
+		
 
 #TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
 # Enable tolerance as an optional param
