@@ -9,6 +9,7 @@ import defines
 import signal
 import subprocess
 import sys
+import os
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
 make naming convention more descriptive (Maybe start() is a better name). 
@@ -140,23 +141,30 @@ class StopTimer(Command):
 
 #Going to be the command to call the Client_Server code for experiments
 class Connect(Command):
-	def __init__(self):
+	def __init__(self, east, north, up, passed_vehicle):
+		#TODO: figure out how to calc distance
 		self.output_file = open("connection_data.txt", "w") #will write information on connection to this
 		self.bytes_read = 0
+		self.data = ''
 		self.dist_to_pi = abs(math.sqrt(
 			(self.vehicle.location.local_frame.north) ** 2 + 
 			(self.vehicle.location.local_frame.east) ** 2 + 
 			(self.vehicle.location.local_frame.down) ** 2))
 		
 	def connect(self):
+		#try catch to continue program if ser
+		try:
 		#compile + make Client_Server
-		subprocess.run(["cd Server_Client && make"], shell = True, check=True)
-		result = subprocess.run([f"cd Server_Client && ./Client/client {defines.IP_ADDRESS} 8080 R"], stdout= subprocess.PIPE, text= True, check = True) #make ip address of rpi
-		if result.returncode == 0:
-			data = result.stdout # need to make sure we can get stdout from piping
-		else:
-			print("ERROR: " + result.stderr)
-		#I think pi will run Server and drone will run Client
+			os.chdir("Server_Client")
+			subprocess.run(["make"], shell = True, check=True)
+			result = subprocess.run(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], shell = True, stdout= subprocess.PIPE, text= True, check = True) #make ip address of rpi
+			if result.returncode == 0:
+				data = result.stdout # need to make sure we can get stdout from piping
+				#maybe just have data be: connected
+		
+		except:
+			data = " ERROR: unable to connect "
+			print(data) #DEBUG statement
 		#Get output of client and output to file along with distance from pi
 		self.output_file.write(self.dist_to_pi + data + "\n") 
 		
