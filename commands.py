@@ -9,6 +9,10 @@ import defines
 import signal
 from energy_budget import EnergyBudget
 from pymavlink import mavutil
+import subprocess
+import sys
+import os
+
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
 make naming convention more descriptive (Maybe start() is a better name). 
@@ -117,9 +121,36 @@ class StopTimer(Command):
 	def is_done(self):
 		return True
 
-#TODO: More accurate commenting and naming. I believe this is moving toward a waypoint until it is within a certain tolerance. 
-# Enable tolerance as an optional param
-class MoveToWaypoint(Command): 
+
+#Command for client server connection in experiment
+#TODO: write command into a .pln file, make plan for experiment
+#TODO: handle this command in missions.py and mission_wrapper.py
+class Connect(Command):
+	def __init__(self, east, north, up, passed_vehicle):
+		self.vehicle = passed_vehicle #TODO: figure out how to calc distance and make sure it is accurate
+		self.output_file = open("connection_data.txt", "w") #will write information on connection to this
+		self.bytes_read = 0
+		self.data = ''
+		self.dist_to_pi = abs(math.sqrt(
+			(self.vehicle.location.local_frame.north) ** 2 + 
+			(self.vehicle.location.local_frame.east) ** 2 + 
+			(self.vehicle.location.local_frame.down) ** 2))
+		
+	def connect(self):
+		try: #try catch to continue program if server and client can't connect
+			os.chdir("Server_Client")
+			subprocess.run(["make"], shell = True, check=True) #compile + make Client_Server
+			result = subprocess.run(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], shell = True, stdout= subprocess.PIPE, text= True, check = True) #make ip address of rpi
+			if result.returncode == 0:
+				data = " Connected"
+		#TODO: Potentially factor in time to connect - see if that would be helpful
+		except:
+			data = " ERROR: unable to connect "
+		#Get output of client and output to file along with distance from pi
+		self.output_file.write("Distance: " + self.dist_to_pi + ", Data: " + data + "\n") 
+		
+
+class MoveToWaypoint(Command): #used to be WaypointDist
 	def __init__(self, east, north, up, passed_vehicle, tolerance = 0.5, debug = False):
 		self.east = east
 		self.north = north
