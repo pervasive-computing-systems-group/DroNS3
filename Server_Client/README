@@ -1,0 +1,36 @@
+Client/Server Implementation
+
+Jonathan Diller, CWID: 10879078
+CSCI 565, Fall 2020, Programming Project 1
+
+--------------------------------------------
+
+
+To run:
+	From the main parent directory (where this README sits) run the following commands
+	
+	1. Build the project. 
+		From the terminal, run: make
+		This SHOULD build both the client and the server.
+		
+	2. Fire up the server!
+		run: ./Server/server 8080
+		The port (8080) can be changed, just make sure you change it in the client commands.
+		
+	3. To send a message to the server:
+		run: ./Client/client 192.168.1.9 8080 S <text file to read>
+		Where <text file to read> is the text file to be sent to the server and the port number (8080) matches the port number that was set for the server in step 2. S indicates that we want to send a message.
+	
+	4. To receive a message from the server:
+		run: ./Client/client 192.168.1.9 8080 R
+		Again, the port number (8080) must match the port number set in step 2. Here, R indicates that we want receive a message from the server.
+
+
+How it works:
+	The server creates a port to listen for incoming calls from clients. When client tries to connect to the server's listening port, the client is put into a queue and waits for the server to receive the request. This queue can currently hold 10 clients. Once the server accepts the request from the client, the client is able to send and receive messages to and from the server. The client initially sends a message to the server saying whether it wants to send a message or receive a message. The server responds with an acknowledgement message for write requests and responds with the message for read requests. The server maintians a queue to hold all of the received messages. If a client requests a message when the message queue is empty, then the server returns an "Error, no messages!" string.
+	
+	The code has debugging built into it. To enable the debugging on either the client or the server, set the DEBUG flag to 1.
+	
+
+References:
+	[1] Beej's Guide to Network Programming, http://beej.us/guide/bgnet/
