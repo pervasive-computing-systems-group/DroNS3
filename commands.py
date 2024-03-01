@@ -125,16 +125,13 @@ class StopTimer(Command):
 #Command for client server connection in experiment
 #TODO: write command into a .pln file, make plan for experiment
 #TODO: handle this command in missions.py and mission_wrapper.py
+#TODO: add energy budget stuff modeled from connect
 class Connect(Command):
-	def __init__(self, east, north, up, passed_vehicle):
+	def __init__(self, passed_vehicle): #might have to pass this differently, should be fine because of mission wrapper
 		self.vehicle = passed_vehicle #TODO: figure out how to calc distance and make sure it is accurate
 		self.output_file = open("connection_data.txt", "w") #will write information on connection to this
 		self.bytes_read = 0
 		self.data = ''
-		self.dist_to_pi = abs(math.sqrt(
-			(self.vehicle.location.local_frame.north) ** 2 + 
-			(self.vehicle.location.local_frame.east) ** 2 + 
-			(self.vehicle.location.local_frame.down) ** 2))
 		
 	def connect(self):
 		try: #try catch to continue program if server and client can't connect
@@ -148,6 +145,12 @@ class Connect(Command):
 			data = " ERROR: unable to connect "
 		#Get output of client and output to file along with distance from pi
 		self.output_file.write("Distance: " + self.dist_to_pi + ", Data: " + data + "\n") 
+	
+	def distance_finder(self):
+		return abs(math.sqrt(
+			(self.vehicle.location.local_frame.north) ** 2 + 
+			(self.vehicle.location.local_frame.east) ** 2 + 
+			(self.vehicle.location.local_frame.down) ** 2))
 		
 
 class MoveToWaypoint(Command): #used to be WaypointDist

@@ -452,3 +452,241 @@ class General(Mission):
 			
 		self.command = self.q.popleft()
 
+
+class ConnectionTests(Mission):
+	'''
+		Mission to test connectivity from different waypoints in order to optimize paths
+
+		plan_path: path to drone plan file. Default value is "drone_plan.pln".
+			The drone plan file utilizes a series of commands, with one command per line. The available commands are:
+				0: Fly to waypoint relative to home location
+					0 [relative x] [relative y] [relative altitude]
+				1: Connect to RPI server at origin
+					1 
+				2: Set mission altitude
+					2 [mission altitude]
+
+		node_path: path to node info file. Default value is "node_info.txt"
+			The node info file lists the nodes in the WSN. Each line contains one node. Coordinates are relative to home locations.
+				[node number] [IP address] [sensor data size] [relative x] [relative y]
+
+		output_path: path to directory where results will be stored. Default value is "" and will write to the working directory
+
+		algorithm: Chooses which algorithm to use. Default value is "DEFAULT"
+			Available algorithms:
+				DEFAULT: The default configuration. Any time the drone cannot connect to a node, it moves toward the node until it connects. If there are
+					multiple nodes that did not connect at a single stop, it will use the order in the drone plan file.
+				NAIVE: Alters the DEFAULT algorithm by not stopping when it connects, but always stopping directly on top of the node.
+				ONLINE: Alters the DEFAULT algorithm by ordering the subtours via the LKH TSP solver algorithm. (Currently not working ://)
+				NO_SUB: Alters the DEFAULT algorithm by not executing subtours.
+
+	'''
+	name = "CONNECTION"
+	missed_q = deque()
+
+	CMD_WAYPOINT = 0
+	CMD_COLL_DATA = 1
+	CMD_MSN_ALT = 2
+	start_time = 0
+	end_time = 0
+	
+
+	def __init__(self, plan_path = "sample_wsn_mission/drone_plan.pln", output_path = "./", algorithm = "DEFAULT",  speed = 10, b_rate = 72, v_bat = 15, pm = 50, ph = 40):
+		#self.sm = b_rate * v_bat / pm # this will be total amount of time drone can travel at max speed
+		#self.sh = b_rate * v_bat / pm # this will be total amount of time drone can hover - both of these will be fixed and provided
+		self.sm = 750 #750 is what it probably should be based on jonathan's code for other thing 
+		self.sh = 14*60 #14*60 based on jonathan code
+		self.energy_budget = self.sm + self.sh #energy budget: time that drone can hover + move
+		self.initial_budget = self.energy_budget
+		self.budget_percent = energy_budget.EnergyBudget(self)
+		self.data = WSNData()
+		self.speed = speed
+		self.plan_path = plan_path
+		self.algorithm = algorithm
+		self.output_path = output_path
+		# Set random seed for consistancy
+		np.random.seed(seed)
+		self.mission_alt = 50
+		# Add take-off command
+		self.q.append(commands.GainAlt(self.mission_alt, vehicle))
+		self.energy_budget -= self.mission_alt/speed
+		# Add Timer-Start command
+		self.q.append(commands.StartTimer())
+		# Get list of commands from file
+		file1 = open(self.plan_path,"r+")
+		# Node power-settings
+		self.nPowers = {-1: 0}
+		# Run through each command in list
+		for aline in file1:
+			values = aline.split()
+			# If cmd = 0 (waypoint)
+			if int(values[0]) == self.CMD_WAYPOINT:
+				# Add waypoint movement to queue
+				self.q.append(commands.MoveToWaypoint(float(values[1]), float(values[2]), float(values[3]), vehicle))
+			# else if cmd = 1 (data collection)
+			elif int(values[0]) == self.CMD_COLL_DATA:
+				# Add connect command
+				self.q.append(commands.Connect())
+			elif int(values[0]) == self.CMD_MSN_ALT:
+				# Set mission altitude
+				self.mission_alt = float(values[1])
+			else:
+				print("ERROR: unexpected cmd in pln file")
+		file1.close()
+		# Add Return-To-Home command
+		self.q.append(commands.ReturnHome(self.mission_alt, vehicle))
+		# Add Timer-Stop command
+		self.q.append(commands.StopTimer())
+		if running_sim:
+			# Add land command
+			self.q.append(commands.Land(vehicle))
+		# Add first command as current command
+		self.command = self.q.popleft()
+		print("Node power settings")
+		print(self.nPowers)
+
+	def pop_loop(self):
+		return_dist = commands.ReturnHome.distance_finder(self.command)
+		cost_to_home = self.cost + self.mission_alt/self.speed  + return_dist/self.speed
+		print("cost to home", cost_to_home)
+		while (cost_to_home) > self.energy_budget: 
+				if len(self.q) > 3:
+					self.q.popleft()
+					if self.command != commands.Connect:
+						if self.command == commands.MoveToWaypoint:
+							self.cost = commands.MoveToWaypoint.distance_finder(self.command)/self.speed
+						elif self.command == commands.MoveAndCollectData:
+							self.cost = commands.MoveAndCollectData.distance_finder(self.command)/self.speed
+					else:
+						self.cost = commands.Connect.distance_finder(self.command)/self.speed + self.sm/self.sh #estimate
+					cost_to_home = self.cost + self.mission_alt/self.speed + return_dist/self.speed
+				else:
+					break
+	def update(self): #TODO: update this for connect command instead of collect data
+		if isinstance(self.command, commands.Connect):
+			self.cost = self.command.cost/self.speed #TODO: make connect have cost with energy budget, go through and comment energy budget stuff so that I understand
+			# Check if we are done collecting data
+			if self.command.is_done():
+				print(self.command.time)
+				self.pop_loop()
+				self.energy_budget -= self.cost
+				self.energy_budget -= self.command.time * (self.sm/self.sh)
+				print(self.energy_budget)
+				# Finished, check is collection was successful
+				if self.command.collection_success():
+					print("Total collected data: " + str(self.data.data_collected))
+				else:
+					print("Total collected data: " + str(self.data.data_collected))
+					# print("Failed collected data from " + str(self.command.node_ID))
+					# Add this node to missed nodes queue
+					self.missed_q.append(self.command.node_ID)
+					# Check if we are done collecting data at the hovering location
+				if not isinstance(self.q[0], commands.CollectData):
+					if self.algorithm == "ONLINE":
+						hpp_points = []
+						hpp_points_id = []
+						while self.missed_q:
+							n = self.missed_q.pop()
+							hpp_points_id.append(n)
+							file1 = open(self.node_path,"r+")
+							for aline in file1:
+								values = aline.split()
+								if int(values[0]) == n:
+									east = float(values[3])
+									north = float(values[4])
+							file1.close()
+							# Add moving-collecting from this node to the command queue
+							hpp_points.append([east,north])
+						if isinstance(self.q[0], commands.MoveToWaypoint):
+							hpp_points.append([self.q[0].east, self.q[0].north])
+							hpp_points_id.append(-1)
+							hpp_points.append(commands.get_xy(vehicle))
+							hpp_points_id.append(-1)
+							
+						else:
+							hpp_points.append([self.q[0].east, self.q[0].north])
+							hpp_points_id.append(-1)
+
+						print(hpp_points)
+
+						if len(hpp_points) < 3:
+							for p, i in zip(hpp_points, hpp_points_id):
+								if i == -1:
+									self.q.appendleft(commands.MoveToWaypoint(p[0], p[1], self.mission_alt, vehicle))
+								else:
+									self.q.appendleft(commands.MoveAndCollectData(i, self.mission_alt, self.nPowers[i], vehicle, self.data, node_path = self.node_path, sim = running_sim))
+						else:
+							lkh = LKH_Solver([hpp_points, len(hpp_points) - 2, len(hpp_points) - 1, holder])
+							LKH_path = lkh.solve()
+							for p in LKH_path:
+								if hpp_points_id[p] == -1:
+									self.q.appendleft(commands.MoveToWaypoint(hpp_points[p][0], hpp_points[p][1], self.mission_alt, vehicle))
+								else:
+									self.q.appendleft(commands.MoveAndCollectData(hpp_points_id[p], self.mission_alt, self.nPowers[p], vehicle, self.data, node_path = self.node_path, sim = running_sim))
+
+					# Done collecting data at this point, start recovery
+					while self.missed_q:
+						n = self.missed_q.pop()
+						if self.algorithm != "NO_SUB":
+							print("Added move-collect command")
+								# Add moving-collecting from this node to the command queue
+							self.q.appendleft(commands.MoveAndCollectData(n, self.mission_alt, self.nPowers[n], vehicle, self.data, algorithm = "NAIVE" if self.algorithm == "NAIVE" else "Default", node_path = self.node_path, sim = running_sim))
+							
+		# Check to see if we just finished a move-collect command
+		
+		if isinstance(self.command, commands.MoveAndCollectData):
+			self.cost = self.command.cost/self.speed
+			# Check if we are done collecting data
+			if self.command.is_done():
+				self.pop_loop()
+				self.energy_budget -= self.cost
+				self.energy_budget -= self.command.time * (self.sm/self.sh)
+
+		
+			# Check if this was the last move-collect command
+			if not isinstance(self.q[0], commands.MoveAndCollectData):
+				# TODO: Update the next waypoint
+				pass
+
+		if isinstance(self.command, commands.MoveToWaypoint):
+			self.cost = self.command.cost/self.speed
+			# Check if we are done collecting data
+			if self.command.is_done():
+				self.pop_loop()
+				self.energy_budget -= self.cost
+
+		if isinstance(self.command, commands.ReturnHome):
+			self.cost = self.command.cost/self.speed
+			self.energy_budget -= self.cost
+
+		if isinstance(self.command, commands.Land):
+			self.cost = self.mission_alt/self.speed
+			self.energy_budget -= self.cost
+
+
+		
+		if isinstance(self.command, commands.StartTimer):
+			self.data.start_timer()
+			print("Starting Timer")
+
+		if isinstance(self.command, commands.StopTimer):
+			self.data.stop_timer()
+			print("Stopping Timer")
+			e = energy_budget.EnergyBudget(mission = self)
+			self.energy_budget -= self.mission_alt/self.speed
+			print(e.percentBudget())
+			if self.output_path[-1] != "/":
+				self.output_path += "/"
+
+			with open(self.output_path + "flight-time.dat", "a") as tfile:
+				tfile.write("0 " + str(self.data.total_time) + "\n")
+
+			with open(self.output_path + "data_collected.dat", "a") as dfile:
+				dfile.write("0 " + str(self.data.data_collected) + "\n")
+
+			print("Data Collected:", self.data.data_collected)
+			self.terminate = True
+
+		super(CollectWSNData, self).update()
+
+
