@@ -34,5 +34,6 @@ class Custom_Command(commands.Command):
 
 if __name__ == '__main__':
 	w = Wrapper()
-	w.start_mission(mission=missions.General(w.vehicle, mission_file="mission.pln", debug = True, custom_commands=[Custom_Command], is_sim=True))
+	w.start_mission(mission=missions.CollectWSNData(w.vehicle, mission_file="drone_plan.pln", debug = True, custom_commands=[Custom_Command], is_sim=True))
+	#w.start_mission(mission=missions.General(w.vehicle, mission_file="mission.pln", debug = True, custom_commands=[Custom_Command], is_sim=True))
 	
