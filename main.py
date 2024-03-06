@@ -1,6 +1,6 @@
 #for testing
 import commands
 
-new = commands.Connect()
+new = commands.Connect("hi")
 
-new.connect(new)
+new.connect()
