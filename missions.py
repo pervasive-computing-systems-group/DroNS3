@@ -466,10 +466,6 @@ class ConnectionTests(Mission):
 				2: Set mission altitude
 					2 [mission altitude]
 
-		node_path: path to node info file. Default value is "node_info.txt"
-			The node info file lists the nodes in the WSN. Each line contains one node. Coordinates are relative to home locations.
-				[node number] [IP address] [sensor data size] [relative x] [relative y]
-
 		output_path: path to directory where results will be stored. Default value is "" and will write to the working directory
 
 		algorithm: Chooses which algorithm to use. Default value is "DEFAULT"
@@ -495,8 +491,6 @@ class ConnectionTests(Mission):
 		self.plan_path = plan_path
 		self.algorithm = algorithm
 		self.output_path = output_path
-		# Set random seed for consistancy
-		np.random.seed(seed)
 		self.mission_alt = 50
 		# Add take-off command
 		self.q.append(commands.GainAlt(self.mission_alt, vehicle))
@@ -504,8 +498,7 @@ class ConnectionTests(Mission):
 		self.q.append(commands.StartTimer())
 		# Get list of commands from file
 		file1 = open(self.plan_path,"r+")
-		# Node power-settings
-		self.nPowers = {-1: 0}
+		first_connect = True
 		# Run through each command in list
 		for aline in file1:
 			values = aline.split()
@@ -516,7 +509,8 @@ class ConnectionTests(Mission):
 			# else if cmd = 1 (data collection)
 			elif int(values[0]) == self.CMD_COLL_DATA:
 				# Add connect command
-				self.q.append(commands.Connect(passed_vehicle=vehicle))
+				self.q.append(commands.Connect(passed_vehicle=vehicle, first=first_connect))
+				first_connect = False
 			elif int(values[0]) == self.CMD_MSN_ALT:
 				# Set mission altitude
 				self.mission_alt = float(values[1])
@@ -532,22 +526,5 @@ class ConnectionTests(Mission):
 			self.q.append(commands.Land(vehicle))
 		# Add first command as current command
 		self.command = self.q.popleft()
-		print("Node power settings")
-		print(self.nPowers)
-
-	def update(self): 
-		if isinstance(self.command, commands.Connect):
-			# Check if we are done collecting data
-			if self.command.is_done():
-				# TODO: change for Connect
-				if self.command.connection_success():
-					print(self.command.data)
-				else:
-					print(self.command.data)
-					# Add this node to missed nodes queue
-					#TODO: idk on this one self.missed_q.append(self.command.node_ID)
-	
-
-		super(ConnectionTests, self).update()
 
 
