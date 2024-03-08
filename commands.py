@@ -129,7 +129,6 @@ class StopTimer(Command):
 class Connect(Command):
 	def __init__(self, passed_vehicle, first): #might have to pass this differently, should be fine because of mission wrapper
 		self.vehicle = passed_vehicle #TODO: figure out how to calc distance and make sure it is accurate
-		self.output_file = open("connection_data.txt", "a") #will write information on connection to this
 		self.bytes_read = 0
 		self.data = ''
 		self.success = False
@@ -141,25 +140,23 @@ class Connect(Command):
 
 	def connect(self):
 		try: #try catch to continue program if server and client can't connect
-			print("trying to connect")
 			if self.first:
 				os.chdir("Server_Client")
-			#subprocess.run(["make"], shell = True, check=True) #compile + make Client_Server
+				with open("../connection_data.txt", "w"):
+					pass #clear file before new run
 			result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], stderr = subprocess.STDOUT, shell = True,  text= True)
-
-		#TODO: Potentially factor in time to connect - see if that would be helpful
 		except subprocess.CalledProcessError as exc:
-			print("went to except", exc.returncode, exc.output)
+			print("Error in subprocess: ", exc.returncode, exc.output)
 			self.data = " ERROR: unable to connect "
 			self.success = False
 			self.done = True
 		else:
-			print("Connected")
 			self.data = " Connected"
 			self.success = True
 			self.done = True
 		#Get output of client and output to file along with distance from pi
-		self.output_file.write("Distance: " + str(self.distance_finder()) + ", Data:" + self.data + "\n") 
+		with open("../connection_data.txt", "a") as output_file:
+			output_file.write("Distance: " + str(self.distance_finder()) + ", Data:" + self.data + "\n") 
 	
 	def distance_finder(self):
 		return abs(math.sqrt(
