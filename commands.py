@@ -145,7 +145,14 @@ class Connect(Command):
 				with open("../connection_data.txt", "w"):
 					pass #clear file before new run
 			result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], stderr = subprocess.STDOUT, shell = True,  text= True)
-			bytes = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 R"], shell = True)
+			#going to read how many bytes were received by server
+			#TODO: figure out how to do that!
+			result_bytes = subprocess.run(["./Client/client " + defines.IP_ADDRESS + " 8080 R"], shell = True, capture_output= True, text=True)
+			lines = result_bytes.stdout.split("\n")
+			for line in lines:
+				if line.startswith("Bytes read from last message:"):
+					self.bytes_sent = int(line.split(": ")[1])
+					break
 		except subprocess.CalledProcessError as exc:
 			print("Error in subprocess: ", exc.returncode, exc.output)
 			self.data = "ERROR: unable to connect "
@@ -158,7 +165,7 @@ class Connect(Command):
 		#Get output of client and output to file along with distance from pi
 		self.total_time = time.time() - self.start_time
 		with open("../connection_data.txt", "a") as output_file:
-			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Time: " + self.total_time + "\n") 
+			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Time: " + self.total_time + ",Bytes read by server: " + self.bytes_sent + "\n") 
 	
 	def distance_finder(self):
 		return abs(math.sqrt(

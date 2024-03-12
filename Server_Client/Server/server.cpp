@@ -144,6 +144,7 @@ int main(int arg, char const *argv[]) {
 
 			close(nClientSocket);
 		}
+		int lastBytesRead = 0;
 
 		// Handle read/write request
 		if(strcmp(sSRCmd, cS) == 0) {
@@ -155,6 +156,9 @@ int main(int arg, char const *argv[]) {
 
 			// Read from server
 			nBytesRead = read(nClientSocket, sBuffer, MAX_MSG_SIZE);
+
+			//update the bytes that were read from most recent message from client
+			lastBytesRead = nBytesRead;
 
 			// Print data read
 			sBuffer[nBytesRead] ='\0';
@@ -169,11 +173,18 @@ int main(int arg, char const *argv[]) {
 			// Send message from packet buffer (if there is one to send)
 			if(!qPacketQueue.empty()) {
 				packet_t packet = qPacketQueue.front();
-
+				char byteCountMsg[100];
+				sprintf(byteCountMsg, "Bytes read from last message: %d", lastBytesRead);
+				if (write(nClientSocket, byteCountMsg, strlen(byteCountMsg)) == -1){
+					fprintf(stderr, "ERROR: failed to write to client\n");
+				}
+				lastBytesRead = 0;
 				// Send message to client
+				//shoudln't need to send the packetQueue
+				/**
 				if(write(nClientSocket, packet.m_sBuffer, packet.m_nBuffSize) == -1) {
 					fprintf(stderr,"ERROR: failed to write to client\n");
-				}
+				}*/
 				qPacketQueue.pop();
 			}
 			else {
