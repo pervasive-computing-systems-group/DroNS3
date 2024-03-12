@@ -123,13 +123,13 @@ class StopTimer(Command):
 
 
 #Command for client server connection in experiment
-#TODO: HANDLE IS_DONE, not working, look at collect_data for example
 #TODO: update .pln file with correct waypoints
 #TODO: maybe add energy budget stuff modeled for Connect
 class Connect(Command):
-	def __init__(self, passed_vehicle, first): #might have to pass this differently, should be fine because of mission wrapper
-		self.vehicle = passed_vehicle #TODO: figure out how to calc distance and make sure it is accurate
-		self.bytes_read = 0
+	def __init__(self, passed_vehicle, first): 
+		self.start_time = time.time()
+		self.vehicle = passed_vehicle 
+		self.bytes_sent = 0
 		self.data = ''
 		self.success = False
 		self.done = False
@@ -145,18 +145,20 @@ class Connect(Command):
 				with open("../connection_data.txt", "w"):
 					pass #clear file before new run
 			result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], stderr = subprocess.STDOUT, shell = True,  text= True)
+			bytes = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 R"], shell = True)
 		except subprocess.CalledProcessError as exc:
 			print("Error in subprocess: ", exc.returncode, exc.output)
-			self.data = " ERROR: unable to connect "
+			self.data = "ERROR: unable to connect "
 			self.success = False
 			self.done = True
 		else:
-			self.data = " Connected"
+			self.data = "Connected"
 			self.success = True
 			self.done = True
 		#Get output of client and output to file along with distance from pi
+		self.total_time = time.time() - self.start_time
 		with open("../connection_data.txt", "a") as output_file:
-			output_file.write("Distance: " + str(self.distance_finder()) + ", Data:" + self.data + "\n") 
+			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Time: " + self.total_time + "\n") 
 	
 	def distance_finder(self):
 		return abs(math.sqrt(
@@ -646,6 +648,17 @@ class MoveAndCollectData(Command):
 # 	def collection_success(self):
 # 		return self.collect_success
 
+class Sleep(Command):
+	def __init__(self, time):
+		self.time = time
+		self.is_done = False
+	def begin(self):
+		self.sleep()
+	def sleep(self):
+		time.sleep(self.time)
+		self.is_done = True
+	def is_done(self):
+		return self.is_done
 
 def land_in_place(passed_vehicle):
 	passed_vehicle.mode = VehicleMode("LAND")

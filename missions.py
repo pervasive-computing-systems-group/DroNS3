@@ -465,6 +465,8 @@ class ConnectionTests(Mission):
 					1 
 				2: Set mission altitude
 					2 [mission altitude]
+				3: Sleep - used to offset attempts to connect when waypoints aren't being used
+					3 [time]
 
 		output_path: path to directory where results will be stored. Default value is "" and will write to the working directory
 
@@ -483,6 +485,7 @@ class ConnectionTests(Mission):
 	CMD_WAYPOINT = 0
 	CMD_COLL_DATA = 1
 	CMD_MSN_ALT = 2
+	CMD_SLEEP = 3
 	start_time = 0
 	end_time = 0
 	
@@ -514,6 +517,8 @@ class ConnectionTests(Mission):
 			elif int(values[0]) == self.CMD_MSN_ALT:
 				# Set mission altitude
 				self.mission_alt = float(values[1])
+			elif int(values[0]) == self.CMD_SLEEP:
+				self.q.append(commands.Sleep(int(values[1])))
 			else:
 				print("ERROR: unexpected cmd in pln file")
 		file1.close()
