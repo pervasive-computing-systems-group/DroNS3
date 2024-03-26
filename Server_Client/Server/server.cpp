@@ -24,8 +24,10 @@
 // (S)end (R)ecieve message size
 #define S_R_SIZE 1
 
-struct packet_t {
-	packet_t(int buffSize, char buffer[MAX_MSG_SIZE]) {
+struct packet_t
+{
+	packet_t(int buffSize, char buffer[MAX_MSG_SIZE])
+	{
 		this->m_nBuffSize = buffSize;
 		strcpy(this->m_sBuffer, buffer);
 	}
@@ -35,13 +37,16 @@ struct packet_t {
 };
 
 // Prints debugging message dbgString if DEBUG flag is set
-void debugPrint(const char *dbgString) {
-	if(DEBUG) {
+void debugPrint(const char *dbgString)
+{
+	if (DEBUG)
+	{
 		puts(dbgString);
 	}
 }
 
-int main(int arg, char const *argv[]) {
+int main(int arg, char const *argv[])
+{
 	int nListeningSock, nClientSocket, nRVal, nReuse = 1;
 	const char cR[] = "R", cS[] = "S";
 	char sBuffer[MAX_MSG_SIZE];
@@ -56,28 +61,32 @@ int main(int arg, char const *argv[]) {
 	memset(&tConfigAddr, 0, sizeof tConfigAddr);
 	tConfigAddr.ai_family = AF_UNSPEC;
 	tConfigAddr.ai_socktype = SOCK_STREAM; // TCP
-	tConfigAddr.ai_flags = AI_PASSIVE; // Use local machine IP
+	tConfigAddr.ai_flags = AI_PASSIVE;	   // Use local machine IP
 
 	// Verify arguments
-	if(arg !=2) {
-		fprintf(stderr,"ERROR: enter port\n");
+	if (arg != 2)
+	{
+		fprintf(stderr, "ERROR: enter port\n");
 		exit(1);
 	}
 
 	// Get a set of socket addresses
 	nRVal = getaddrinfo(NULL, argv[1], &tConfigAddr, &tAddrSet);
-	if(nRVal) {
-		fprintf(stderr,"ERROR: getaddrinfo() failed: %s\n", gai_strerror(nRVal));
+	if (nRVal)
+	{
+		fprintf(stderr, "ERROR: getaddrinfo() failed: %s\n", gai_strerror(nRVal));
 		exit(1);
 	}
 
 	tAddrInfo = tAddrSet;
 
 	// Loop through addresses and try to connect
-	while(tAddrInfo != NULL) {
+	while (tAddrInfo != NULL)
+	{
 		// Create listening socket
 		nListeningSock = socket(tAddrInfo->ai_family, tAddrInfo->ai_socktype, tAddrInfo->ai_protocol);
-		if(nListeningSock == -1) {
+		if (nListeningSock == -1)
+		{
 			debugPrint("Trying to connect to socket");
 			tAddrInfo = tAddrInfo->ai_next;
 
@@ -85,25 +94,29 @@ int main(int arg, char const *argv[]) {
 		}
 
 		// Set socket option to reuse address
-		if(setsockopt(nListeningSock, SOL_SOCKET, SO_REUSEADDR, &nReuse, sizeof(int)) == -1) {
-			fprintf(stderr,"ERROR: setsockopt() failed\n");
+		if (setsockopt(nListeningSock, SOL_SOCKET, SO_REUSEADDR, &nReuse, sizeof(int)) == -1)
+		{
+			fprintf(stderr, "ERROR: setsockopt() failed\n");
 			exit(1);
 		}
 
 		// Attempt to bind address info to socket
-		if(bind(nListeningSock, tAddrInfo->ai_addr, tAddrInfo->ai_addrlen) == -1) {
+		if (bind(nListeningSock, tAddrInfo->ai_addr, tAddrInfo->ai_addrlen) == -1)
+		{
 			close(nListeningSock);
 			debugPrint("Failed to bind socket");
 			tAddrInfo = tAddrInfo->ai_next;
 			continue;
 		}
-		else {
+		else
+		{
 			break;
 		}
 	}
 
-	if(tAddrInfo == NULL) {
-		fprintf(stderr,"ERROR: failed to bind socket\n");
+	if (tAddrInfo == NULL)
+	{
+		fprintf(stderr, "ERROR: failed to bind socket\n");
 		exit(1);
 	}
 
@@ -111,22 +124,25 @@ int main(int arg, char const *argv[]) {
 	freeaddrinfo(tAddrSet);
 
 	// Enable socket to accept incoming connections, with client queue
-	if(listen(nListeningSock, CONNECTION_QUEUE_SIZE) == -1) {
-		fprintf(stderr,"ERROR: unable to set socket to listen\n");
+	if (listen(nListeningSock, CONNECTION_QUEUE_SIZE) == -1)
+	{
+		fprintf(stderr, "ERROR: unable to set socket to listen\n");
 		exit(1);
 	}
 
 	printf("Server is ready!\n");
 
 	// Infinite loop to handle incoming connections
-	while(true) {
+	while (true)
+	{
 		tpClientAddrSize = sizeof(tClientAddr);
 
 		// Wait for incoming connection requests
 		nClientSocket = accept(nListeningSock, (struct sockaddr *)&tClientAddr, &tpClientAddrSize);
 
 		// Verify we connected
-		if(nClientSocket == -1) {
+		if (nClientSocket == -1)
+		{
 			debugPrint("Failed to accept connection request");
 			continue;
 		}
@@ -135,70 +151,88 @@ int main(int arg, char const *argv[]) {
 
 		// Read from server
 		int nBytesRead = read(nClientSocket, sSRCmd, S_R_SIZE);
-		sSRCmd[S_R_SIZE] ='\0';
+		sSRCmd[S_R_SIZE] = '\0';
 
 		// Verify data was read
-		if(nBytesRead == -1) {
+		if (nBytesRead == -1)
+		{
 			// Failed to read, close socket and end child process
-			fprintf(stderr,"ERROR: did not read client hello message\n");
+			fprintf(stderr, "ERROR: did not read client hello message\n");
 
 			close(nClientSocket);
 		}
 		int lastBytesRead = 0;
 
 		// Handle read/write request
-		if(strcmp(sSRCmd, cS) == 0) {
+		if (strcmp(sSRCmd, cS) == 0)
+		{
 			// Client wants to send us a message
 			// Tell client we are ready to receive
-			if(send(nClientSocket , cR, strlen(cR), 0) == -1) {
-				fprintf(stderr,"ERROR: failed to send 'receive' message to client\n");
+			if (send(nClientSocket, cR, strlen(cR), 0) == -1)
+			{
+				fprintf(stderr, "ERROR: failed to send 'receive' message to client\n");
 			}
 
 			// Read from server
 			nBytesRead = read(nClientSocket, sBuffer, MAX_MSG_SIZE);
 
-			//update the bytes that were read from most recent message from client
+			// update the bytes that were read from most recent message from client
 			lastBytesRead = nBytesRead;
 
 			// Print data read
-			sBuffer[nBytesRead] ='\0';
-			printf("Message from client: \n%s\n",sBuffer);
+			sBuffer[nBytesRead] = '\0';
+			printf("Message from client: \n%s\n", sBuffer);
+			printf("Bytes read: %d\n", nBytesRead);
+
+			// send message back to client
+			char byteCountMsg[100];
+			sprintf(byteCountMsg, "Bytes recieved from last message (client -> server): %d", nBytesRead);
+			if (write(nClientSocket, byteCountMsg, strlen(byteCountMsg)) == -1)
+			{
+				fprintf(stderr, "ERROR: failed to write to client\n");
+			}
 
 			qPacketQueue.push(packet_t(nBytesRead, sBuffer));
 
 			debugPrint("Added message to packet buffer");
 		}
-		else if(strcmp(sSRCmd, cR) == 0) {
+		else if (strcmp(sSRCmd, cR) == 0)
+		{
 			// Client wants to read data!
 			// Send message from packet buffer (if there is one to send)
-			if(!qPacketQueue.empty()) {
+			if (!qPacketQueue.empty())
+			{
 				packet_t packet = qPacketQueue.front();
 				char byteCountMsg[100];
-				sprintf(byteCountMsg, "Bytes read from last message: %d", lastBytesRead);
-				if (write(nClientSocket, byteCountMsg, strlen(byteCountMsg)) == -1){
+				sprintf(byteCountMsg, "Bytes read from last message (server -> client): %d", nBytesRead);
+				if (write(nClientSocket, byteCountMsg, strlen(byteCountMsg)) == -1)
+				{
 					fprintf(stderr, "ERROR: failed to write to client\n");
 				}
 				lastBytesRead = 0;
 				// Send message to client
-				//shoudln't need to send the packetQueue
+				// shoudln't need to send the packetQueue
 				/**
 				if(write(nClientSocket, packet.m_sBuffer, packet.m_nBuffSize) == -1) {
 					fprintf(stderr,"ERROR: failed to write to client\n");
 				}*/
 				qPacketQueue.pop();
 			}
-			else {
+			else
+			{
 				// Buffer is empty, tell to client
-				if(write(nClientSocket, "Error, no messages!", 19) == -1) {
-					fprintf(stderr,"ERROR: failed to write to client\n");
+				if (write(nClientSocket, "Error, no messages!", 19) == -1)
+				{
+					fprintf(stderr, "ERROR: failed to write to client\n");
 				}
 
 				debugPrint("Buffer empty! :o");
 			}
 		}
-		else {
+		else
+		{
 			// Client sent unexpected hello message
-			fprintf(stderr,"ERROR: receive unexpected hello message: \"%s\"\n", sSRCmd);
+			fprintf(stderr, "ERROR: receive unexpected hello message: \"%s\"\n", sSRCmd);
 		}
 
 		debugPrint("Client handled!");
@@ -207,5 +241,3 @@ int main(int arg, char const *argv[]) {
 
 	return 0;
 }
-
-

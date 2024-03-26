@@ -138,20 +138,28 @@ class Connect(Command):
 	def begin(self):
 		self.connect()
 
+	#TODO: sending has no output, either need to fix that or make receiving have correct number of bytes
 	def connect(self):
 		try: #try catch to continue program if server and client can't connect
 			if self.first:
 				os.chdir("Server_Client")
 				with open("../connection_data.txt", "w"):
 					pass #clear file before new run
-			result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], stderr = subprocess.STDOUT, shell = True,  text= True)
+			# result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], stderr = subprocess.STDOUT, shell = True, text= True)
+			result = subprocess.run(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], shell = True, capture_output= True, text= True)
+			# result = result.split("\n")
+			result = result.stdout.split("\n")
+			print("result: ")
+			for line in result:
+				print(line)
 			#going to read how many bytes were received by server
-			#TODO: figure out how to do that!
 			result_bytes = subprocess.run(["./Client/client " + defines.IP_ADDRESS + " 8080 R"], shell = True, capture_output= True, text=True)
 			lines = result_bytes.stdout.split("\n")
+			print("lines: ")
 			for line in lines:
-				if line.startswith("Bytes read from last message:"):
-					self.bytes_sent = int(line.split(": ")[1])
+				print(line)
+				if line.startswith("Bytes read:"):
+					self.bytes_sent += line.split(": ")[1]
 					break
 		except subprocess.CalledProcessError as exc:
 			print("Error in subprocess: ", exc.returncode, exc.output)
