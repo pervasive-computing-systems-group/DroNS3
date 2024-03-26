@@ -165,7 +165,7 @@ class Connect(Command):
 		#Get output of client and output to file along with distance from pi
 		self.total_time = time.time() - self.start_time
 		with open("../connection_data.txt", "a") as output_file:
-			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Time: " + self.total_time + ",Bytes read by server: " + self.bytes_sent + "\n") 
+			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Time: " + str(self.total_time) + ",Bytes read by server: " + str(self.bytes_sent) + "\n") 
 	
 	def distance_finder(self):
 		return abs(math.sqrt(
