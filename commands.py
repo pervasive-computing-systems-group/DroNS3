@@ -12,6 +12,8 @@ from pymavlink import mavutil
 import subprocess
 import sys
 import os
+import generate_data
+import random
 
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
@@ -127,7 +129,6 @@ class StopTimer(Command):
 #TODO: maybe add energy budget stuff modeled for Connect
 class Connect(Command):
 	def __init__(self, passed_vehicle, first): 
-		self.start_time = time.time()
 		self.vehicle = passed_vehicle 
 		self.bytes_sent = 0
 		self.data = ''
@@ -136,6 +137,9 @@ class Connect(Command):
 		self.first = first
 	
 	def begin(self):
+		self.start_time = time.time()
+		self.bytes_sent = random.randint(1000, 3000)
+		generate_data.generate_data(self.bytes_sent, "send.txt")
 		self.connect()
 
 	#TODO: sending has no output, either need to fix that or make receiving have correct number of bytes
@@ -143,37 +147,24 @@ class Connect(Command):
 		try: #try catch to continue program if server and client can't connect
 			if self.first:
 				os.chdir("Server_Client")
+				subprocess.run(["make"], shell = True)
 				with open("../connection_data.txt", "w"):
 					pass #clear file before new run
-			# result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], stderr = subprocess.STDOUT, shell = True, text= True)
-			result = subprocess.run(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], shell = True, capture_output= True, text= True)
-			# result = result.split("\n")
-			result = result.stdout.split("\n")
-			print("result: ")
-			for line in result:
-				print(line)
-			#going to read how many bytes were received by server
-			result_bytes = subprocess.run(["./Client/client " + defines.IP_ADDRESS + " 8080 R"], shell = True, capture_output= True, text=True)
-			lines = result_bytes.stdout.split("\n")
-			print("lines: ")
-			for line in lines:
-				print(line)
-				if line.startswith("Bytes read:"):
-					self.bytes_sent += line.split(": ")[1]
-					break
+			result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], shell = True,  text= True)
+			self.data = "Connected"
+			self.success = True
+			self.done = True
 		except subprocess.CalledProcessError as exc:
 			print("Error in subprocess: ", exc.returncode, exc.output)
 			self.data = "ERROR: unable to connect "
 			self.success = False
 			self.done = True
-		else:
-			self.data = "Connected"
-			self.success = True
-			self.done = True
+		#else:
+
 		#Get output of client and output to file along with distance from pi
 		self.total_time = time.time() - self.start_time
 		with open("../connection_data.txt", "a") as output_file:
-			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Time: " + str(self.total_time) + ",Bytes read by server: " + str(self.bytes_sent) + "\n") 
+			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Number of bytes sent: " + str(self.bytes_sent) +  ", Time: " + str(self.total_time) + "\n") 
 	
 	def distance_finder(self):
 		return abs(math.sqrt(

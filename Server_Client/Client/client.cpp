@@ -19,9 +19,9 @@
 #include <stdio.h>
 
 // Debug flag
-#define DEBUG 0
+#define DEBUG 1
 // Message size limit
-#define MAX_MSG_SIZE 3000
+#define MAX_MSG_SIZE 8000
 // (S)end (R)ecieve message size
 #define S_R_SIZE 1
 
@@ -48,7 +48,7 @@ int main(int arg, char const *argv[]) {
 
 	// If sending a message, read text file
 	if(strcmp(argv[3], cS) == 0) {
-		debugPrint("Reading file");
+		debugPrint("Reading file	");
 
 		std::ifstream file(argv[4]);
 		std::string sInptStr;
@@ -137,7 +137,15 @@ int main(int arg, char const *argv[]) {
 		if(strcmp(sSRCmd, cR) == 0) {
 			// Server is ready to receive message!
 			// Send message
-			send(nSock , sBuffer, nBytesToSend, 0);
+			int nBytesSent, nBytesTotal = 0;
+
+			do{
+				//nBytesSent = send(nSock , sBuffer, nBytesToSend, 0);
+				nBytesSent = send(nSock, sBuffer, 1000, 0);
+				nBytesTotal += nBytesSent;
+				*sBuffer += nBytesSent;
+			} while (nBytesSent < nBytesToSend);
+
 			debugPrint("Message sent");
 		}
 		else {

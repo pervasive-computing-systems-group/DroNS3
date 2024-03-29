@@ -16,11 +16,11 @@
 #include <stdio.h>
 
 // Debug flag
-#define DEBUG 0
+#define DEBUG 1
 // Number of pending connections to queue
 #define CONNECTION_QUEUE_SIZE 10
 // Message size limit
-#define MAX_MSG_SIZE 3000
+#define MAX_MSG_SIZE 8000
 // (S)end (R)ecieve message size
 #define S_R_SIZE 1
 
@@ -173,26 +173,32 @@ int main(int arg, char const *argv[])
 				fprintf(stderr, "ERROR: failed to send 'receive' message to client\n");
 			}
 
-			// Read from server
-			nBytesRead = read(nClientSocket, sBuffer, MAX_MSG_SIZE);
+			// Read from client
+			// nBytesRead = read(nClientSocket, sBuffer, MAX_MSG_SIZE);
+
+
+
+			int nBytesRead = 0;
+			int nBytesReadTotal = 0;
+			do{
+				nBytesRead = read(nClientSocket, sBuffer, MAX_MSG_SIZE);
+				nBytesReadTotal += nBytesRead;
+				*sBuffer += nBytesRead; //incrementing pointer?
+				debugPrint("Looping to receive!\n");
+				printf("Message from client: \n%s\n", sBuffer);
+			} while (nBytesRead > 0);
 
 			// update the bytes that were read from most recent message from client
-			lastBytesRead = nBytesRead;
+			lastBytesRead = nBytesReadTotal;
 
 			// Print data read
-			sBuffer[nBytesRead] = '\0';
-			printf("Message from client: \n%s\n", sBuffer);
-			printf("Bytes read: %d\n", nBytesRead);
-
+			sBuffer[nBytesReadTotal] = '\0';
+			printf("Final message from client: \n%s\n", sBuffer);
+			printf("Bytes read: %d\n", nBytesReadTotal);
 			// send message back to client
-			char byteCountMsg[100];
-			sprintf(byteCountMsg, "Bytes recieved from last message (client -> server): %d", nBytesRead);
-			if (write(nClientSocket, byteCountMsg, strlen(byteCountMsg)) == -1)
-			{
-				fprintf(stderr, "ERROR: failed to write to client\n");
-			}
+		
 
-			qPacketQueue.push(packet_t(nBytesRead, sBuffer));
+			qPacketQueue.push(packet_t(nBytesReadTotal, sBuffer));
 
 			debugPrint("Added message to packet buffer");
 		}
@@ -204,7 +210,6 @@ int main(int arg, char const *argv[])
 			{
 				packet_t packet = qPacketQueue.front();
 				char byteCountMsg[100];
-				sprintf(byteCountMsg, "Bytes read from last message (server -> client): %d", nBytesRead);
 				if (write(nClientSocket, byteCountMsg, strlen(byteCountMsg)) == -1)
 				{
 					fprintf(stderr, "ERROR: failed to write to client\n");
