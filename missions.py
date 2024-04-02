@@ -494,9 +494,7 @@ class ConnectionTests(Mission):
 		self.plan_path = plan_path
 		self.algorithm = algorithm
 		self.output_path = output_path
-		self.mission_alt = 50
-		# Add take-off command
-		self.q.append(commands.GainAlt(self.mission_alt, vehicle))
+		self.mission_alt = 0
 		# Add Timer-Start command
 		self.q.append(commands.StartTimer())
 		# Get list of commands from file
@@ -512,10 +510,11 @@ class ConnectionTests(Mission):
 			# else if cmd = 1 (data collection)
 			elif int(values[0]) == self.CMD_COLL_DATA:
 				# Add connect command
-				self.q.append(commands.Connect(passed_vehicle=vehicle, first=first_connect))
+				self.q.append(commands.Connect(passed_vehicle=vehicle, first=first_connect, bytes_sent=int(values[1])))
 				first_connect = False
 			elif int(values[0]) == self.CMD_MSN_ALT:
 				# Set mission altitude
+				self.q.append(commands.GainAlt(float(values[1]), vehicle))
 				self.mission_alt = float(values[1])
 			elif int(values[0]) == self.CMD_SLEEP:
 				self.q.append(commands.Sleep(int(values[1])))

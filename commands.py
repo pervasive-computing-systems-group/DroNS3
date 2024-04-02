@@ -128,9 +128,9 @@ class StopTimer(Command):
 #TODO: update .pln file with correct waypoints
 #TODO: maybe add energy budget stuff modeled for Connect
 class Connect(Command):
-	def __init__(self, passed_vehicle, first): 
+	def __init__(self, passed_vehicle, first, bytes_sent): 
 		self.vehicle = passed_vehicle 
-		self.bytes_sent = 0
+		self.bytes_sent = bytes_sent
 		self.data = ''
 		self.success = False
 		self.done = False
@@ -138,7 +138,6 @@ class Connect(Command):
 	
 	def begin(self):
 		self.start_time = time.time()
-		self.bytes_sent = random.randint(1000, 1500) 
 		generate_data.generate_data(self.bytes_sent, "send.txt")
 		self.connect()
 
