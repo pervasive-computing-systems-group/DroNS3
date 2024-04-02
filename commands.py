@@ -138,7 +138,7 @@ class Connect(Command):
 	
 	def begin(self):
 		self.start_time = time.time()
-		self.bytes_sent = random.randint(1000, 3000)
+		self.bytes_sent = random.randint(1000, 1500) 
 		generate_data.generate_data(self.bytes_sent, "send.txt")
 		self.connect()
 
@@ -151,6 +151,8 @@ class Connect(Command):
 				with open("../connection_data.txt", "w"):
 					pass #clear file before new run
 			result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], shell = True,  text= True)
+			print("CLIENT STDOUT:")
+			print(result)
 			self.data = "Connected"
 			self.success = True
 			self.done = True
