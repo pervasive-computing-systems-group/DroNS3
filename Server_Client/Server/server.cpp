@@ -20,7 +20,7 @@
 // Number of pending connections to queue
 #define CONNECTION_QUEUE_SIZE 10
 // Message size limit
-#define MAX_MSG_SIZE 8000
+#define MAX_MSG_SIZE 1024
 // (S)end (R)ecieve message size
 #define S_R_SIZE 1
 
@@ -176,31 +176,35 @@ int main(int arg, char const *argv[])
 			// Read from client
 			// nBytesRead = read(nClientSocket, sBuffer, MAX_MSG_SIZE);
 
-
-
 			int nBytesRead = 0;
 			int nBytesReadTotal = 0;
-			do{
+			// char *sBufferOriginal = sBuffer;
+			do
+			{
 				nBytesRead = read(nClientSocket, sBuffer, MAX_MSG_SIZE);
 				nBytesReadTotal += nBytesRead;
-				*sBuffer += nBytesRead; //incrementing pointer?
+				// *sBuffer += nBytesRead; // incrementing pointer?
 				debugPrint("Looping to receive!\n");
-				printf("Message from client: \n%s\n", sBuffer);
+				char message[50];
+				sprintf(message, "Bytes read:  %d", nBytesRead);
+				printf("%s\n", message);
+				// printf("Message from client: \n%s\n", sBuffer);
+				// printf("sbuffer[i]: %c", sBuffer[0]);
+				// update the bytes that were read from most recent message from client
+				// lastBytesRead = nBytesReadTotal;
+
+				// Print data read
+				sBuffer[nBytesRead] = '\0';
+				// send message back to client
+
+				qPacketQueue.push(packet_t(nBytesReadTotal, sBuffer));
+				printf("%s", sBuffer);
+
+				debugPrint("Added message to packet buffer");
 			} while (nBytesRead > 0);
 
-			// update the bytes that were read from most recent message from client
-			lastBytesRead = nBytesReadTotal;
-
-			// Print data read
-			sBuffer[nBytesReadTotal] = '\0';
-			printf("Final message from client: \n%s\n", sBuffer);
-			printf("Bytes read: %d\n", nBytesReadTotal);
-			// send message back to client
-		
-
-			qPacketQueue.push(packet_t(nBytesReadTotal, sBuffer));
-
-			debugPrint("Added message to packet buffer");
+			printf("Final message from client written to file \n");
+			printf("Total Bytes read: %d\n", nBytesReadTotal);
 		}
 		else if (strcmp(sSRCmd, cR) == 0)
 		{
