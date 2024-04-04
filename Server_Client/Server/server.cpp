@@ -198,7 +198,7 @@ int main(int arg, char const *argv[])
 				// send message back to client
 
 				qPacketQueue.push(packet_t(nBytesReadTotal, sBuffer));
-				printf("%s", sBuffer);
+				//printf("%s", sBuffer);
 
 				debugPrint("Added message to packet buffer");
 			} while (nBytesRead > 0);

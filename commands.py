@@ -150,8 +150,8 @@ class Connect(Command):
 				with open("../connection_data.txt", "w"):
 					pass #clear file before new run
 			result = subprocess.check_output(["./Client/client " + defines.IP_ADDRESS + " 8080 S send.txt"], shell = True,  text= True)
-			print("CLIENT STDOUT:")
-			print(result)
+			#print("CLIENT STDOUT:")
+			#print(result)
 			self.data = "Connected"
 			self.success = True
 			self.done = True
