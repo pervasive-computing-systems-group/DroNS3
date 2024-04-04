@@ -16,11 +16,11 @@
 #include <stdio.h>
 
 // Debug flag
-#define DEBUG 1
+#define DEBUG 0
 // Number of pending connections to queue
 #define CONNECTION_QUEUE_SIZE 10
 // Message size limit
-#define MAX_MSG_SIZE 1024
+#define MAX_MSG_SIZE 3000
 // (S)end (R)ecieve message size
 #define S_R_SIZE 1
 
@@ -187,7 +187,7 @@ int main(int arg, char const *argv[])
 				debugPrint("Looping to receive!\n");
 				char message[50];
 				sprintf(message, "Bytes read:  %d", nBytesRead);
-				printf("%s\n", message);
+				//printf("%s\n", message);
 				// printf("Message from client: \n%s\n", sBuffer);
 				// printf("sbuffer[i]: %c", sBuffer[0]);
 				// update the bytes that were read from most recent message from client

@@ -19,9 +19,9 @@
 #include <stdio.h>
 
 // Debug flag
-#define DEBUG 1
+#define DEBUG 0
 // Message size limit
-#define MAX_MSG_SIZE 1024
+#define MAX_MSG_SIZE 3000
 // (S)end (R)ecieve message size
 #define S_R_SIZE 1
 
@@ -148,7 +148,7 @@ int main(int arg, char const *argv[])
 
 				// record number of bytes sent
 				nBytesTotal += nBytesSent;
-				printf("Message segment sent, num bytes: %d\n", nBytesSent);
+				//printf("Message segment sent, num bytes: %d\n", nBytesSent);
 			}
 
 			fclose(fp);
