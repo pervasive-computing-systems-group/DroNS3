@@ -128,7 +128,8 @@ class StopTimer(Command):
 #TODO: update .pln file with correct waypoints
 #TODO: maybe add energy budget stuff modeled for Connect
 class Connect(Command):
-	def __init__(self, passed_vehicle, first, bytes_sent): 
+	def __init__(self, passed_vehicle, first, bytes_sent, distance): 
+		self.distance = distance
 		self.vehicle = passed_vehicle 
 		self.bytes_sent = bytes_sent
 		self.data = ''
@@ -165,7 +166,8 @@ class Connect(Command):
 		#Get output of client and output to file along with distance from pi
 		self.total_time = time.time() - self.start_time
 		with open("../connection_data.txt", "a") as output_file:
-			output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Number of bytes sent: " + str(self.bytes_sent) +  ", Time: " + str(self.total_time) + "\n") 
+			#output_file.write("Distance: " + str(self.distance_finder()) + ", Data: " + self.data + ", Number of bytes sent: " + str(self.bytes_sent) +  ", Time: " + str(self.total_time) + "\n") 
+			output_file.write("Distance: " + str(self.distance) + ", Data: " + self.data + ", Number of bytes sent: " + str(self.bytes_sent) +  ", Time: " + str(self.total_time) + "\n") 
 	
 	def distance_finder(self):
 		return abs(math.sqrt(
