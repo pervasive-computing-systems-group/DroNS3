@@ -25,7 +25,7 @@ class Solver(object):
 
 
 '''
-    LKH_Solver is a child class of the solver class that utilizes the LKH TSP solver to solve Fixed Hamiltonian Path Problems. 
+    LKH_Solver is a child class of the solver class that utilizes the LKH TSP (Traveling Salesman Problem) solver to solve Fixed Hamiltonian Path Problems. 
     __init__ :
         Arguments:  
             args: an array of arguments. The arguments array should contain exactly:
