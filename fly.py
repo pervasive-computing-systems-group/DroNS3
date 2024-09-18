@@ -1,15 +1,9 @@
-import time
 import missions
-import commands
-from dronekit import connect, VehicleMode, LocationGlobalRelative
 import subprocess as sb
-import sys
-import defines
 from mission_wrapper import Wrapper
-# 
+
 # To run the simulation, open a terminal in ardupilot/ArduCopter and run:
 # sim_vehicle.py -f quad -L CSM_SurveyField --console --map --osd
-# 
 
 
 if __name__ == '__main__':
