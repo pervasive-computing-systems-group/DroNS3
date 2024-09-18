@@ -16,7 +16,7 @@ while not vehicle.is_armable:
 
 print("Arming motors")
 # Copter should arm in GUIDED mode
-vehicle.mode = VehicleMode("AUTO")
+vehicle.mode = VehicleMode("GUIDED")
 vehicle.armed = True
 
 

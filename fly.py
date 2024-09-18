@@ -7,8 +7,8 @@ from mission_wrapper import Wrapper
 
 
 if __name__ == '__main__':
-	w = Wrapper(is_sim=True)
-	#w.start_mission(mission=missions.General(w.vehicle, mission_file="general_mission.txt", debug = True, custom_commands=[Custom_Command], is_sim=True))
-	w.start_mission(mission=missions.ConnectionTests())
+	w = Wrapper(is_sim=False)
+	w.start_mission(mission=missions.General(w.vehicle, mission_file="sample_wsn_mission.flight_test.pln", debug = True, custom_commands=[Custom_Command], is_sim=True))
+	# w.start_mission(mission=missions.ConnectionTests())
 	#w.start_mission(mission=missions.CollectWSNData(plan_path="sample_wsn_mission/drone_plan.pln", node_path = "sample_wsn_mission/node_info.txt", output_path = "./", algorithm = "DEFAULT"))
 	
