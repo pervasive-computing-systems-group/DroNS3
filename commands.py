@@ -498,7 +498,130 @@ class CollectData(Command):
 	def collection_success(self):
 		return self.collect_success.is_set()
 
+
+
+# Run data collection script
+class CollectWSNData(Command):
+	# Collect data from node, with node communication range node_range (for simulation)
+	def __init__(self, vehicle, node, sim = False, node_data_path = 'data/node_data.dat', comm_path = './Networking/Client/collect_data', node_data = None):
+		# Data about the node we are connecting to:
+		self.node_ID = int(node)
+		self.east = 0
+		self.north = 0
+		self.altitude = 0
+		self.safeAGL = 0
+		self.node_type = 0
+		self.byte_to_collect = 0
+		self.node_hostname = None
+		# Other stuff that we need
+		self.vehicle = vehicle
+		self.thread = None
+		self.running_sim = sim
+		self.node_path = node_data_path
+		self.communication_path = comm_path
+		# Fill in node data
+		if node_data == None:
+			# Read node info from a file...
+			file1 = open(self.node_path)
+			# Find this node in the file
+			for aline in file1:
+				values = aline.split()
+				if int(values[0]) == self.node_ID:
+					self.node_hostname = values[1]
+					self.east = float(values[2])
+					self.north = float(values[3])
+					self.altitude = float(values[4])
+					self.byte_to_collect = 1000000
+					break
+			file1.close()
+		else:
+			# Get node data from node_data argument
+			# node_data = [x, y, z, z_s, Q, type, ip]
+			self.east = node_data[0]
+			self.north = node_data[1]
+			self.altitude = node_data[2]
+			self.safeAGL = node_data[3]
+			self.byte_to_collect = node_data[4]
+			self.node_type = node_data[5]
+			self.node_hostname = node_data[6]
+		
+		# Thread events for collection success/complete
+		self.collect_success = Event()
+		self.collect_success.clear()
+		self.collect_complete = Event()
+		self.collect_complete.clear()
+
+	def begin(self):
+		# Create thread for comms process
+		if self.node_hostname is not None:
+			self.thread = Thread(target=self.launchCollection)
+			self.thread.start()
+			holder.add_thread(self.thread)
+		else:
+			print("ERROR:CollectWSNData: failed to find node " + str(self.node_ID) + " info")
+			# Set complete-flag
+			self.collect_complete.set()
+
+	def launchCollection(self):
+		# Start comms process, wait for response
+		print(f'Collecting data from {self.node_ID}')
+		self.start =  time.time()
+		# Are we running the simulation?
+		if self.running_sim:
+			print(f"Simulating data TX, expecting {self.byte_to_collect} bytes")
+			dist_to_node = abs(math.sqrt(
+				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+				(self.vehicle.location.local_frame.down - self.altitude) ** 2))
+			# Collect data using SimpleNetSim
+			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect)],  stdout=sb.DEVNULL)
+			holder.add_process(child)
+			child.communicate()[0]
+			rc = child.returncode
+		else:
+			if self.communication_path is not None:
+				# Collect data using collect_data executable
+				try:
+					child = sb.Popen([self.communication_path, str(self.node_hostname)], stdout=sb.DEVNULL)
+					holder.add_process(child)
+					child.communicate()[0]
+					rc = child.returncode
+				except Exception:
+					print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+				
+			else:
+				print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
+
+		# If return on comms process was successful, set success-flag
+		if rc == 0:
+			self.collect_success.set()
+		# else, leave success-flag unset
+		else:
+			print("failed to collect from node " + str(self.node_ID))
+		
+		self.end = time.time()
+		self.time = self.end-self.start
+		# Set complete-flag, rejoin
+		self.collect_complete.set()
 	
+	def distance_finder(self):
+		return abs(math.sqrt(
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down) ** 2))
+
+	def is_done(self):
+		if self.collect_complete.is_set():
+			if self.thread is not None:
+				self.thread.join()
+			return True
+		else:
+			return False
+		
+	def collection_success(self):
+		return self.collect_success.is_set()
+
+
 
 #TODO: Refactor both MoveAndCollectData to contain both.
 class MoveAndCollectData(Command):

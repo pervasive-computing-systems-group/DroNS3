@@ -34,7 +34,5 @@ class Custom_Command(commands.Command):
 
 if __name__ == '__main__':
 	w = Wrapper()
-	#w.start_mission(mission=missions.General(w.vehicle, mission_file="general_mission.txt", debug = True, custom_commands=[Custom_Command], is_sim=True))
-	w.start_mission(mission=missions.ConnectionTests())
-	#w.start_mission(mission=missions.CollectWSNData(plan_path="sample_wsn_mission/drone_plan.pln", node_path = "sample_wsn_mission/node_info.txt", output_path = "./", algorithm = "DEFAULT"))
-	
+	# w.start_mission(mission=missions.WSNMission(w.vehicle, mission_file="test/plan_0_0.pln", debug = True, is_sim=True))
+	w.start_mission(mission=missions.General(w.vehicle, mission_file="sample_wsn_mission/basic_plan.pln", debug = True, is_sim=True))

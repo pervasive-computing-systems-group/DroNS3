@@ -85,7 +85,7 @@ class Mission(object):
 		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
 		#TODO: more robust failsafe
 		while not self.terminate:
-			if vehicle.mode == VehicleMode("GUIDED") and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
+			if (vehicle.mode == VehicleMode("GUIDED") or vehicle.mode == VehicleMode("LAND")) and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
 				self.update()
 			else:
 				time.sleep(0.1)
@@ -532,3 +532,155 @@ class ConnectionTests(Mission):
 		self.command = self.q.popleft()
 
 
+
+class WSNMission(Mission):
+	'''
+		General is a Mission subclass that takes a mission file with one command on each line. Each command consists of an integer representing
+		a command, and the number of required (or optional) parameters deliniated by spaces.
+
+		Commands:
+			0: GainAlt - the drone gains target_altitude (float) meters in altitude.
+				0 <target_altitude>
+			1: MoveToWaypoint - the drone moves to the specified location with an optional tolerance parameter.
+				1 <east> <north> <up> [tolerance]
+			2: ReturnHome - the drone returns to its home location at the specified altitude (float).
+				2 <altitude>
+			3: Land - the drone decreases its altitude until it reaches the ground. There are no other parameters for this command.
+				3
+			4: Wait - the drone waits a specified time (float).
+				4 <wait_time>
+			5: Collect Data - TODO Write this.
+				5 <node_ID> [bytes collected]
+			6 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
+			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a refrence to the mission,
+			and a single array object who's elements are the intended parameters.
+	'''
+	name = "WSNMISSION"
+
+	def __init__(self, vehicle, mission_file = "sample_wsn_mission/drone_plan.pln", debug = False, custom_commands = None, is_sim = False, telem = None):
+		self.vehicle = vehicle
+		self.simulation = is_sim
+		self.telemetry = telem
+		self.debug = debug
+		self.retry_mode = False
+		with open(mission_file) as mf:
+			command_list = mf.readlines()
+
+		for c in command_list:
+			c = c.split()
+			self.addCommand(c)
+
+		self.command = self.q.popleft()
+
+	# Periodically called to check command status/is-done
+	def update(self):
+		# Check current command
+		if self.command.is_done():
+			# Was this a data collection command?
+			if isinstance(self.command, commands.CollectWSNData):
+				if not self.retry_mode and not self.command.collection_success():
+					print("Replan Mission!")
+					# Create planning files
+					try:
+						# Open the input file for reading
+						with open(defines.ORCHESTRATOR_PATH+'scenario.txt', 'r') as scenario_file:
+							# Read the contents of the file
+							content = scenario_file.readlines()
+
+						# Add drone type (TODO: need to fix this)
+						content += '0\n'
+						# Add current position
+						content += f'{self.vehicle.location.local_frame.east} {self.vehicle.location.local_frame.north} {self.vehicle.location.local_frame.down}\n'
+						# Add which node didn't respond
+						content += f'{self.command.node_ID}\n'
+						# Add all remaining nodes
+						for cmd in self.q:
+							if isinstance(cmd, commands.CollectWSNData):
+								content += f'{cmd.node_ID} '
+						content += '\n'
+
+						# Open the output file for writing
+						with open(defines.ORCHESTRATOR_PATH+'scenario_online.txt', 'w') as outfile:
+							# Write the modified content to the new file
+							outfile.writelines(content)
+
+						print(f"File scenario_online.txt has been created")
+					except FileNotFoundError:
+						print(f"Error: The file scenario.txt does not exist.")
+					except Exception as e:
+						print(f"An error occurred: {e}")
+
+					# Call planner
+					print("Running local planner")
+					try:
+						# Run local planner
+						process = sb.run([defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt'], check=True)
+
+						# Wait for the process to complete
+						if process.returncode == 0:
+							print("Running local planner finished!")
+							# Load new plan
+							try:
+								# Open the input file for reading
+								with open('./plan/plan_0_0.pln', 'r') as new_plan:
+									# Read the contents of the file
+									new_plan = new_plan.readlines()
+								print(f"Read in new plan!")
+								# Load new plan
+								self.q.clear()
+								for c in new_plan:
+									c = c.split()
+									self.addCommand(c)
+								self.retry_mode = True
+
+							except FileNotFoundError:
+								print(f"Error: The file ./plan/plan_0_0.pln does not exist.")
+						else:
+							print(f"{defines.SNS_PATH} exited with return code: {process.returncode}")
+					except FileNotFoundError:
+						print(f"Error: Executable '{defines.SNS_PATH}' not found.")
+					except sb.CalledProcessError as e:
+						print(f"Error occurred while running {defines.SNS_PATH}: {e}")
+					except Exception as e:
+						print(f"An unexpected error occurred: {e}")
+				else:
+					self.retry_mode = False
+
+			# Current command finished, check if there is another command
+			if self.q:
+				# Run next command
+				self.command = self.q.popleft()
+				self.command.begin()
+			else:
+				# deque is empty
+				self.dispose()
+		# Current command isn't complete, call update on command
+		else:
+			#  Command not complete, call update
+			self.command.update()
+
+	def addCommand(self, c):
+			if c[0] == "0":
+				#Gain_Alt command
+				self.q.append(commands.GainAlt(float(c[1]), self.vehicle))
+			elif c[0] == "1":
+				#MoveToWaypoint
+				if len(c) == 4:
+					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, debug = self.debug))
+				elif len(c) == 5:
+					self.q.append(commands.MoveToWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, tolerance = float(c[4]), debug = self.debug))
+			elif c[0] == "2":
+				#Return home
+				self.q.append(commands.ReturnHome(float(c[1]), self.vehicle, debug = self.debug))
+			elif c[0] == "3":
+				#Land
+				self.q.append(commands.Land(self.vehicle, debug = self.debug))
+			elif c[0] == "4":
+				self.q.append(commands.Wait(float(c[1]), self.vehicle, debug=self.debug))
+			elif c[0] == "5":
+				if len(c) == 2:
+					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data_path = 'data/node_info.dat', comm_path = './Networking/Client/collect_data'))
+				elif len(c) == 9: # cmd-5 node-id x y z safe-agl byte node-type node-ip
+					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = './Networking/Client/collect_data'))
+				else:
+					print(f"Bad number of arguments! Command: {c[0]}")
