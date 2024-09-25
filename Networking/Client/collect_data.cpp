@@ -29,14 +29,20 @@ char const *info[] = {"localhost", "8080"};
 
 int main(int argc, char** argv) {
 	const char* hostname;
+	bool print_tx_data = false;
+	double dist = 0.0;
 
-	if(argc != 2) {
+	if(argc < 2 && argc > 3) {
 		printf("ERROR: expected argument for node hostname, e.g.:\n ./collect_data localhost\n");
 		return 1;
 	}
 
 	// Get node id from arguments
 	hostname = argv[1];
+	if(argc == 3) {
+		print_tx_data = true;
+		dist = atof(argv[2]);
+	}
 	
 	if(DEBUG)
 		printf("Collecting data from node at %s\n", hostname);
@@ -120,14 +126,37 @@ int main(int argc, char** argv) {
 		// Create a data structure to hold the data
 		char* data = new char[recPack.bytes_to_send];
 
+		// Start timer
+		typedef std::chrono::high_resolution_clock Time;
+		auto start = Time::now();
+
 		// Send the rest of the data...
 		int bytes_read = 0;
 		while(bytes_read < recPack.bytes_to_send) {
 			bytes_read += read(nSock, data + bytes_read, recPack.bytes_to_send - bytes_read);
 			debugPrint(" read data packet");
 		}
+		// End timer
+		auto end = Time::now();
+
 		printf("Read %d bytes\n", bytes_read);
 		debugPrint(data);
+
+		// Are we logging TX data?
+		if(print_tx_data) {
+			typedef std::chrono::duration<double> fsec;
+			fsec fs = end-start;
+			typedef std::chrono::milliseconds ms;
+			ms d = std::chrono::duration_cast<ms>(fs);
+			printf("TX duration: %ld ms\n", d.count());
+
+			FILE * pOutputFile;
+			debugPrint("Printing TX data\n");
+			pOutputFile = fopen("tx_data.dat", "a");
+			// File format: n m runmun computed_Z estimated_Z comp-time
+			fprintf(pOutputFile, "%f %d %ld\n", dist, bytes_read, d.count());
+			fclose(pOutputFile);
+		}
 
 		// Memory cleanup
 		delete[] data;
@@ -136,9 +165,6 @@ int main(int argc, char** argv) {
 	close(nSock);
 
 	debugPrint("Successfully collected data from server\n");
-
-//	// We have successfully contacted the node. Sleep to simulate data collection
-//	std::this_thread::sleep_for(std::chrono::milliseconds(collectTime));
 
 	return 0;
 }
