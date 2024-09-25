@@ -9,6 +9,9 @@
  *
  */
 
+#define LOG_DATA true
+#define FILE_NAME "drone_range_test.log"
+
 #include <chrono>
 #include <thread>
 #include <iostream>
@@ -33,6 +36,14 @@ int main(int argc, char** argv) {
 	if(argc != 2) {
 		printf("ERROR: expected argument for node hostname, e.g.:\n ./collect_data localhost\n");
 		return 1;
+	}
+
+	// open file to log drone data
+
+	fprintf(file, "hi");
+
+	if (LOG_DATA) {
+
 	}
 
 	// Get node id from arguments
