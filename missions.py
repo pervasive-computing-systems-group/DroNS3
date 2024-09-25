@@ -397,7 +397,7 @@ class General(Mission):
 				4 <wait_time>
 			5: Collect Data - TODO Write this.
 			6 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
-			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a refrence to the mission,
+			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a reference to the mission,
 			and a single array object who's elements are the intended parameters. 
 			
 	'''
@@ -532,7 +532,6 @@ class ConnectionTests(Mission):
 		self.command = self.q.popleft()
 
 
-
 class WSNMission(Mission):
 	'''
 		General is a Mission subclass that takes a mission file with one command on each line. Each command consists of an integer representing
@@ -552,7 +551,7 @@ class WSNMission(Mission):
 			5: Collect Data - TODO Write this.
 				5 <node_ID> [bytes collected]
 			6 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
-			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a refrence to the mission,
+			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a reference to the mission,
 			and a single array object who's elements are the intended parameters.
 	'''
 	name = "WSNMISSION"
