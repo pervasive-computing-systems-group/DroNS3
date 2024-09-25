@@ -623,6 +623,94 @@ class CollectWSNData(Command):
 
 
 
+# Run data collection script
+class CollectTXData(Command):
+	# Collect data from node, arguents: vehicle, sim?, node-ip, distance, bytes-(for simulation), comms exe path
+	def __init__(self, vehicle, sim = False, node_ip='localhost', distance=0, bytes=1000, comm_path = './Networking/Client/collect_data'):
+		# Data about the node we are connecting to:
+		self.distance = distance
+		self.node_type = 0
+		self.byte_to_collect = bytes
+		self.node_hostname = node_ip
+		# Other stuff that we need
+		self.vehicle = vehicle
+		self.thread = None
+		self.running_sim = sim
+		self.communication_path = comm_path
+		
+		# Thread events for collection success/complete
+		self.collect_success = Event()
+		self.collect_success.clear()
+		self.collect_complete = Event()
+		self.collect_complete.clear()
+
+	def begin(self):
+		# Create thread for comms process
+		if self.node_hostname is not None:
+			self.thread = Thread(target=self.launchCollection)
+			self.thread.start()
+			holder.add_thread(self.thread)
+		else:
+			print("ERROR:CollectWSNData: no hostname")
+			# Set complete-flag
+			self.collect_complete.set()
+
+	def launchCollection(self):
+		# Start comms process, wait for response
+		print(f'Collecting data @ {self.node_hostname}')
+		self.start =  time.time()
+		# Are we running the simulation?
+		if self.running_sim:
+			print(f"Simulating data TX, expecting {self.byte_to_collect} bytes")
+			# Collect data using SimpleNetSim
+			child = sb.Popen([defines.SNS_PATH, str(self.distance), str(self.byte_to_collect)],  stdout=sb.DEVNULL)
+			holder.add_process(child)
+			child.communicate()[0]
+			rc = child.returncode
+		else:
+			if self.communication_path is not None:
+				# Collect data using collect_data executable
+				try:
+					child = sb.Popen([self.communication_path, str(self.node_hostname), str(self.distance)], stdout=sb.DEVNULL)
+					holder.add_process(child)
+					child.communicate()[0]
+					rc = child.returncode
+				except Exception:
+					print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+				
+			else:
+				print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
+
+		# If return on comms process was successful, set success-flag
+		if rc == 0:
+			self.collect_success.set()
+		# else, leave success-flag unset
+		else:
+			print("failed to collect at " + str(self.node_hostname))
+		
+		self.end = time.time()
+		self.time = self.end-self.start
+		# Set complete-flag, rejoin
+		self.collect_complete.set()
+	
+	def distance_finder(self):
+		return abs(math.sqrt(
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down) ** 2))
+
+	def is_done(self):
+		if self.collect_complete.is_set():
+			if self.thread is not None:
+				self.thread.join()
+			return True
+		else:
+			return False
+		
+	def collection_success(self):
+		return self.collect_success.is_set()
+
+
 #TODO: Refactor both MoveAndCollectData to contain both.
 class MoveAndCollectData(Command):
 	# Attempt to collect data from node, while moving towards the node 

@@ -548,11 +548,10 @@ class WSNMission(Mission):
 				3
 			4: Wait - the drone waits a specified time (float).
 				4 <wait_time>
-			5: Collect Data - TODO Write this.
-				5 <node_ID> [bytes collected]
-			6 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
-			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a reference to the mission,
-			and a single array object who's elements are the intended parameters.
+			5: Collect Data - Collect data from node node_ID. cmd data: [node-x node-y node-z safe-agl byte node-type node-ip]
+				5 <node_ID> [cmd data]
+			6: Collect Data, No Replan - Collect data from node node_ID. cmd data: [node-x node-y node-z safe-agl byte node-type node-ip]
+				6 <node_ID> [cmd data]
 	'''
 	name = "WSNMISSION"
 
@@ -679,7 +678,13 @@ class WSNMission(Mission):
 			elif c[0] == "5":
 				if len(c) == 2:
 					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data_path = 'data/node_info.dat', comm_path = './Networking/Client/collect_data'))
-				elif len(c) == 9: # cmd-5 node-id x y z safe-agl byte node-type node-ip
+				elif len(c) == 9: # cmd-5 node-id x y z safe-agl bytes node-type node-ip
 					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = './Networking/Client/collect_data'))
+				else:
+					print(f"Bad number of arguments! Command: {c[0]}")
+			elif c[0] == "6":
+				if len(c) == 4: # cmd-6 node-ip distance bytes
+					# self, vehicle, sim = False, node_ip='localhost', distance=0, bytes=1000, comm_path = './Networking/Client/collect_data'
+					self.q.append(commands.CollectTXData(self.vehicle, sim = False, node_ip=c[1], distance=c[2], bytes=c[3], comm_path = './Networking/Client/collect_data'))
 				else:
 					print(f"Bad number of arguments! Command: {c[0]}")

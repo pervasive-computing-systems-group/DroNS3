@@ -2,13 +2,11 @@ import abc
 import time
 
 class Odometer(object):
-	__metaclass__ = abc.ABCMeta
-
-	def __init__(self, start_position, start_time):
+	def __init__(self, start_position):
 		# Start and end position/times
 		self.start_position = start_position
 		self.end_position = [0,0,0]
-		self.start_time = start_time
+		self.start_time = time.time()
 		self.end_time = 0
 		# Track if this odometry reading is complete (we have start & end pos/t)
 		self.complete = False

@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
 			debugPrint("Printing TX data\n");
 			pOutputFile = fopen("tx_data.dat", "a");
 			// File format: n m runmun computed_Z estimated_Z comp-time
-			fprintf(pOutputFile, "%f %d %ld\n", dist, bytes_read, d.count());
+			fprintf(pOutputFile, "%s %f %d %ld\n", hostname, dist, bytes_read, d.count());
 			fclose(pOutputFile);
 		}
 

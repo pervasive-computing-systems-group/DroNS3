@@ -34,5 +34,5 @@ class Custom_Command(commands.Command):
 
 if __name__ == '__main__':
 	w = Wrapper()
-	w.start_mission(mission=missions.WSNMission(w.vehicle, mission_file="test/plan_0_0.pln", debug = True, is_sim=True))
+	w.start_mission(mission=missions.WSNMission(w.vehicle, mission_file="plan_files/tx_data_collection/basic.pln", debug = True, is_sim=True))
 	# w.start_mission(mission=missions.General(w.vehicle, mission_file="sample_wsn_mission/basic_plan.pln", debug = True, is_sim=True))
