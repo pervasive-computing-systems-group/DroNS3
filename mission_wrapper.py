@@ -24,7 +24,7 @@ class Process_Thread_Holder(object):
 
 class Wrapper(object):
 
-    def __init__(self) -> None:
+    def __init__(self, is_sim=True) -> None:
 
         self.pth = Process_Thread_Holder()
         
@@ -37,8 +37,13 @@ class Wrapper(object):
         # path = defines.MISSION_PATH
         missions.setSeed(seed)
 
-        print("Connect to simulation vehicle")
-        self.vehicle = connect('localhost:14550', wait_ready=True)
+        # Connect to pixhawk over UART or simulation at localhost
+        if (is_sim):
+            print("Connect to simulation vehicle")
+            self.vehicle = connect('localhost:14550', wait_ready=True)
+        else:
+            print("Connecting to Pixhawk Cube")
+            self.vehicle = connect('/dev/ttyAMA0', wait_ready=True, baud=57600)
 
         # Get some vehicle attributes (state)
         print("Contacted vehicle!")
