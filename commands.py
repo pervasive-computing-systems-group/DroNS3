@@ -581,8 +581,12 @@ class CollectWSNData(Command):
 		else:
 			if self.communication_path is not None:
 				# Collect data using collect_data executable
+				dist_to_node = abs(math.sqrt(
+					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+					(self.vehicle.location.local_frame.down - self.altitude) ** 2))
 				try:
-					child = sb.Popen([self.communication_path, str(self.node_hostname)], stdout=sb.DEVNULL)
+					child = sb.Popen([self.communication_path, str(self.node_hostname), str(dist_to_node)], stdout=sb.DEVNULL)
 					holder.add_process(child)
 					child.communicate()[0]
 					rc = child.returncode
