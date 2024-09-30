@@ -23,6 +23,42 @@ We should try to remove all global variables.
 We should try to make all filepaths passed rather than hardcoded - or in the defines file for any library. 
 '''
 
+'''
+TODO: Implement this c code in this file, instead of relying on NS3
+
+	// Cody and ava changes
+
+	// set amount of time the data takes to transfer, based on distance and amount of data
+	float data_transfer_rate;
+	float MAX_TRANSFER_RATE = 0.2; // MBPS
+	float coefficient = 0.5; // found from emperaiacal testing
+
+	data_transfer_rate = coefficient / sqrtf(distance);
+
+	// add some gauussian distrubtion 
+	// https://en.cppreference.com/w/cpp/numeric/random/normal_distribution
+	std::random_device rd{};
+    std::mt19937 gen{rd()};
+ 
+    // values near the mean are the most likely
+    // standard deviation affects the dispersion of generated values from the mean
+    std::normal_distribution d{data_transfer_rate, 0.86934};
+ 
+    // draw a sample from the normal distribution and round it to an integer
+    data_transfer_rate = [&d, &gen]{ return d(gen); };
+
+	if (data_transfer_rate > MAX_TRANSFER_RATE) {
+		data_transfer_rate = MAX_TRANSFER_RATE;
+	}
+	if (data_transfer_rate <= 0) {
+		std::cout << "NS3 Failed to connect (speed below zero)\n";
+		exit(1);
+	}
+
+	int64_t time_delay_ms = 1000 * payload / data_transfer_rate;
+
+'''
+
 # ph = ProcessHandler(debug=defines.debug)
 
 # def signal_handler(signum, frame):
@@ -141,7 +177,6 @@ class Connect(Command):
 		generate_data.generate_data(self.bytes_sent, "send.txt")
 		self.connect()
 
-	#TODO: sending has no output, either need to fix that or make receiving have correct number of bytes
 	def connect(self):
 		try: #try catch to continue program if server and client can't connect
 			if self.first:
@@ -160,7 +195,6 @@ class Connect(Command):
 			self.data = "ERROR: unable to connect "
 			self.success = False
 			self.done = True
-		#else:
 
 		#Get output of client and output to file along with distance from pi
 		self.total_time = time.time() - self.start_time
@@ -444,8 +478,11 @@ class CollectData(Command):
 				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
 				(self.vehicle.location.local_frame.down) ** 2))
 			# Collect data using NS3
+			#TODO: make this account for different distances in how long it takes to connect in simulation
+			print("distance:" + str(dist_to_node))
 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
 		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=true"],  stdout=sb.DEVNULL)
+			
 			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
@@ -531,6 +568,7 @@ class MoveAndCollectData(Command):
 		self.running_sim = sim
 		self.algorithm = algorithm
 		self.node_path = node_path
+		
 
 		# Find data about this node
     
@@ -567,6 +605,10 @@ class MoveAndCollectData(Command):
 					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
 					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
 					(self.vehicle.location.local_frame.down + self.up) ** 2))
+			if self.launchCollection():
+				print("MOVE COLLECT COLLECTING DATA")
+			if not self.collect_success:
+				print("MOVE COLLECT< COLLECTING NOT DONE")
 			# Attempt to communicate with this node
 			if not self.collect_success and self.launchCollection():
 				print("Connected to node, stopping for data collection")
@@ -605,14 +647,17 @@ class MoveAndCollectData(Command):
 				(self.vehicle.location.local_frame.down) ** 2))
 			# Attempt to contact node using NS3, disable delay, set data to 1 byte
 			child = sb.Popen([defines.NS_3_PATH, "run", "scratch/drone-to-sensor", "--", "--distance="+str(dist_to_node), 
-		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=false"], stdout=sb.DEVNULL)
+		     	"--payload=5000000", "--txpower="+str(self.power), "--delay=true"], stdout=sb.DEVNULL)
 			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
+			print("running launch collection for move collect")
+			print("RETURN CODE: ", rc)
 		else:
 			# Attempt to contact node using collect_data executable with transmission time = 0
 			child = sb.Popen(["/home/pi/MinLatencyWSN/MinLat_autopilot/Networking/Client/collect_data", str(self.node_ID), str(self.node_hostname), "0"], 
 		    	stdout=sb.DEVNULL)
+			print("other sb being called")
 			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
@@ -626,6 +671,14 @@ class MoveAndCollectData(Command):
 			self.time =self.end - self.start
 			return True
 		# else, return false
+		elif rc == -1:
+			print("compiled")
+		elif rc ==2:
+			print("Failed from cody and ava code")
+			self.end = time.time()
+			self.time =self.end - self.start
+		elif rc ==3:
+			print("sink")
 		else:
 			print("failed to collect from node " + str(self.node_ID))
 			self.end = time.time()

@@ -69,6 +69,8 @@
 #include "ns3/network-module.h"
 #include "ns3/packet-sink.h"
 
+#include <cmath>
+
 NS_LOG_COMPONENT_DEFINE ("wifi-tcp");
 
 using namespace ns3;
@@ -83,6 +85,7 @@ static void ReceivePacket(std::string path, Ptr<const Packet> packet, const Addr
 
 
 int main (int argc, char *argv[]) {
+	exit(-1)
 	// Record time to run simulation
 	std::chrono::steady_clock::time_point beginTime = std::chrono::steady_clock::now();
 
@@ -206,6 +209,39 @@ int main (int argc, char *argv[]) {
 	Ptr<PacketSink> sink1 = DynamicCast<PacketSink> (sinkApps.Get (0));
 	std::cout << "Total Bytes Received: " << sink1->GetTotalRx() << std::endl << lastRX.GetSeconds() << "s " << std::endl;
 
+
+	// Cody and ava changes
+
+	// set amount of time the data takes to transfer, based on distance and amount of data
+	float data_transfer_rate;
+	float MAX_TRANSFER_RATE = 0.2; // MBPS
+	float coefficient = 0.5; // found from emperaiacal testing
+
+	data_transfer_rate = coefficient / sqrtf(distance);
+
+	// add some gauussian distrubtion 
+	// https://en.cppreference.com/w/cpp/numeric/random/normal_distribution
+	std::random_device rd{};
+    std::mt19937 gen{rd()};
+ 
+    // values near the mean are the most likely
+    // standard deviation affects the dispersion of generated values from the mean
+    std::normal_distribution d{data_transfer_rate, 0.86934};
+ 
+    // draw a sample from the normal distribution and round it to an integer
+    data_transfer_rate = [&d, &gen]{ return d(gen); };
+
+	if (data_transfer_rate > MAX_TRANSFER_RATE) {
+		data_transfer_rate = MAX_TRANSFER_RATE;
+	}
+	if (data_transfer_rate <= 0) {
+		std::cout << "NS3 Failed to connect (speed below zero)\n";
+		exit(1);
+	}
+
+	int64_t time_delay_ms = 1000 * payload / data_transfer_rate;
+	
+
 	if(delay) {
 		// Record end of simulation time
 		std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
@@ -214,7 +250,7 @@ int main (int argc, char *argv[]) {
 		int64_t time_lapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime).count();
 
 		// We have successfully contacted the node. Sleep to simulate data collection
-		std::this_thread::sleep_for(std::chrono::milliseconds(lastRX.GetMilliSeconds() - time_lapsed));
+		std::this_thread::sleep_for(std::chrono::milliseconds(time_delay_ms - time_lapsed));
 	}
 
 	// Check to see if any data was collected
@@ -223,7 +259,7 @@ int main (int argc, char *argv[]) {
 		// of data, therefore the sensor failed to connect to the drone.
 		std::cout << "Failed to connect\n";
 		// Hard fail so that user knows that data transmission failed
-		exit(1);
+		exit(3);
 	}
 
 	return 0;
