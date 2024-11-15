@@ -85,7 +85,7 @@ class Mission(object):
 		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
 		#TODO: more robust failsafe
 		while not self.terminate:
-			if vehicle.mode == VehicleMode("GUIDED") and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
+			if (vehicle.mode == VehicleMode("GUIDED") or vehicle.mode == VehicleMode("LAND")) and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
 				self.update()
 			else:
 				time.sleep(0.1)
@@ -395,7 +395,9 @@ class General(Mission):
 				3
 			4: Wait - the drone waits a specified time (float).
 				4 <wait_time>
-			5: Collect Data - TODO Write this.
+			5: Collect Data - Collect data from a sensor. If the is_sim flag is set, this command will simulate communication using NS3. Otherwise, 
+								the user must provide a 
+				5 <east> <north> <up>
 			6 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
 			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a refrence to the mission,
 			and a single array object who's elements are the intended parameters. 
@@ -444,10 +446,8 @@ class General(Mission):
 						print("No custom commands")
 			elif int(c[0]) > 5:
 				command = custom_commands[int(c[0]) - 6]
-
 				for i in range(1, len(c)):
 					c[i] = float(c[i])
-
 				self.q.append(command(self.vehicle, self, c[1:]))
 			
 		self.command = self.q.popleft()

@@ -12,7 +12,6 @@ from mission_wrapper import Wrapper
 # 
 
 class Custom_Command(commands.Command):
-
 	def __init__(self, vehicle, mission, args, debug = False):
 		self.vehicle = vehicle
 		self.mission = mission
@@ -34,8 +33,8 @@ class Custom_Command(commands.Command):
 
 if __name__ == '__main__':
 	w = Wrapper()
-	#w.start_mission(mission=missions.General(w.vehicle, mission_file="general_mission.txt", debug = True, custom_commands=[Custom_Command], is_sim=True))
+	w.start_mission(mission=missions.General(w.vehicle, mission_file="sample_wsn_mission/basic_data_collect.pln", debug = True, custom_commands=[Custom_Command], is_sim=True))
 	#w.start_mission(mission=missions.ConnectionTests())
 	#  Mission file used in ``Holistic path planning for multi-drone data collection''
-	w.start_mission(mission=missions.CollectWSNData(plan_path="sample_wsn_mission/simple_plan.pln", node_path = "sample_wsn_mission/simple_node_info.txt", output_path = "./", algorithm = "DEFAULT"))
+	# w.start_mission(mission=missions.CollectWSNData(plan_path="sample_wsn_mission/simple_plan.pln", node_path = "sample_wsn_mission/simple_node_info.txt", output_path = "./", algorithm = "DEFAULT"))
 	
