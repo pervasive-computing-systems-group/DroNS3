@@ -397,7 +397,7 @@ class General(Mission):
 				4 <wait_time>
 			5: Collect Data - Collect data from a sensor. If the is_sim flag is set, this command will simulate communication using NS3. Otherwise, 
 								the user must provide a 
-				5 <east> <north> <up>
+				5 <east> <north> <up> <TX-power> <data-payload>
 			6 + : Custom Commands - User specified commands. A list of commands (references to the command classes, not command objects) that inherit from
 			commands.Command must be passed into the optional argument custom_commands. These commands must each take a vehicle parameter, a refrence to the mission,
 			and a single array object who's elements are the intended parameters. 
