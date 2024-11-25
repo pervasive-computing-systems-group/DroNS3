@@ -14,6 +14,7 @@ from solver import LKH_Solver
 from telemetry import WSNData
 import telemetry
 import energy_budget
+import odometry
 '''
 TODO:
 
@@ -64,7 +65,7 @@ class Mission(object):
 	terminate = False
 	name = "Name not set"
 	thread = None
-	q = deque()
+	q = deque()					# Command queue used to store and sequentially access stored commands
 
 	#TODO: Refactor to include optional global arguments - simulation + any others we want
 	@abc.abstractmethod
@@ -570,6 +571,9 @@ class WSNMission(Mission):
 
 		self.command = self.q.popleft()
 
+		self.odometer = odometry.Odometer(self.vehicle)
+		self.odometer.update()		#run first measurement
+
 	# Periodically called to check command status/is-done
 	def update(self):
 		# Check current command
@@ -647,9 +651,11 @@ class WSNMission(Mission):
 				# Run next command
 				self.command = self.q.popleft()
 				self.command.begin()
+				self.odometer.update()		#Take odometer measurement every time a command is completed
 			else:
-				# deque is empty
+				# mission is complete
 				self.dispose()
+				self.odometer.write()
 		# Current command isn't complete, call update on command
 		else:
 			#  Command not complete, call update

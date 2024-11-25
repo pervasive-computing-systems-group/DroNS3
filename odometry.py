@@ -1,47 +1,48 @@
-import abc
 import time
+import math
 
+# This class is used to store odometry information to a text file.
 class Odometer(object):
-	def __init__(self, start_position):
-		# Start and end position/times
-		self.start_position = start_position
-		self.end_position = [0,0,0]
-		self.start_time = time.time()
-		self.end_time = 0
-		# Track if this odometry reading is complete (we have start & end pos/t)
-		self.complete = False
+    def __init__(self, vehicle) -> None:
+        # Last positions for calculating displacement every update
+        self.last_north = 0
+        self.last_east = 0
+        # last time for calculating time duration every update.
+        self.last_time = time.time()
 
-	def time_duration(self) -> float:
-		if not self.complete:
-			pass
+        self.odometry_list = []  # list to hold odometry data [duration, displacement]
 
-# class WSNData(Telemetry):
-#     def __init__(self):
-#         super().__init__()
-#         self.start_time = time.time()
-#         self.data_collected = 0
-#         self.total_time = None
+        self.vehicle = vehicle  # Vehicle object to pull positions from
 
-#     def start_timer(self):
-#         self.start_time = time.time()
-    
-#     def stop_timer(self):
-#         self.total_time = time.time() - self.start_time
-    
-#     def collect_data(self, data):
-#         self.data_collected += data
-        
-#     def __str__(self) -> str:
-#         return "{t},{d}".format(t = self.total_time if self.total_time is not None else time.time() - self.start_time, d = self.data_collected)
+    def update(self) -> None:
+        new_odometry_measurement = []
+        # Calculate dt
+        current_time = time.time()
+        dt = current_time - self.last_time
+        # Calculate displacement
+        displacement = self.displacement_finder()
 
-# class NetworkData(Telemetry):
+        # set current position to last position
+        self.last_north = self.vehicle.location.local_frame.north
+        self.last_east = self.vehicle.location.local_frame.east
+        self.last_down = self.vehicle.location.local_frame.down
 
-#     def __init__(self):
-#         super().__init__()
-#         self.data_collected = 0
-    
-#     def add_data_collected(self, data:int):
-#         self.data_collected += data
+        # append to list of measurements
+        self.odometry_list.append([dt, displacement])
 
-#     def __str__(self) -> str:
-#         return "{d}".format(d = self.data_collected)
+    # Finds displacement between last position and current position
+    def displacement_finder(self) -> float:
+        return abs(
+            math.sqrt(
+                (self.vehicle.location.local_frame.north - self.last_north) ** 2
+                + (self.vehicle.location.local_frame.east - self.last_east) ** 2
+                + (self.vehicle.location.local_frame.down - self.last_down) ** 2
+            )
+        )
+
+    # Writes contents of the odometry list to a file
+    def write(self) -> float:
+        with open("Odometry/odometer_measurements.txt", "w") as f:
+            for measurement in self.odometry_list:
+                f.write(f"{line}\n")
+        f.close()
