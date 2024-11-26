@@ -572,7 +572,7 @@ class WSNMission(Mission):
 		self.command = self.q.popleft()
 
 		self.odometer = odometry.Odometer(self.vehicle)
-		self.odometer.update()		#run first measurement
+		self.odometer.update('3')		#run first measurement
 
 	# Periodically called to check command status/is-done
 	def update(self):
@@ -648,12 +648,19 @@ class WSNMission(Mission):
 				else:
 					self.retry_mode = False
 
+			# Update odometer
+			if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectTXData):
+				self.odometer.update('0') 
+			elif isinstance(self.command, commands.MoveToWaypoint) or isinstance(self.command, commands.ReturnHome):
+				self.odometer.update('1')
+			else:
+				self.odometer.update('3')
+
 			# Current command finished, check if there is another command
 			if self.q:
 				# Run next command
 				self.command = self.q.popleft()
 				self.command.begin()
-				self.odometer.update()		#Take odometer measurement every time a command is completed
 			else:
 				# mission is complete
 				self.dispose()

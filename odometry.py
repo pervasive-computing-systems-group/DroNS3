@@ -7,6 +7,7 @@ class Odometer(object):
         # Last positions for calculating displacement every update
         self.last_north = 0
         self.last_east = 0
+        self.last_down = 0
         # last time for calculating time duration every update.
         self.last_time = time.time()
 
@@ -14,21 +15,22 @@ class Odometer(object):
 
         self.vehicle = vehicle  # Vehicle object to pull positions from
 
-    def update(self) -> None:
-        new_odometry_measurement = []
+    def update(self, flag) -> None:
         # Calculate dt
         current_time = time.time()
         dt = current_time - self.last_time
         # Calculate displacement
         displacement = self.displacement_finder()
 
-        # set current position to last position
+        # Update last position to current position
         self.last_north = self.vehicle.location.local_frame.north
         self.last_east = self.vehicle.location.local_frame.east
         self.last_down = self.vehicle.location.local_frame.down
+        # Update time
+        self.last_time = current_time
 
         # append to list of measurements
-        self.odometry_list.append([dt, displacement])
+        self.odometry_list.append([dt, displacement, flag])
 
     # Finds displacement between last position and current position
     def displacement_finder(self) -> float:
@@ -44,5 +46,5 @@ class Odometer(object):
     def write(self) -> float:
         with open("Odometry/odometer_measurements.txt", "w") as f:
             for measurement in self.odometry_list:
-                f.write(f"{line}\n")
+                f.write(f"{measurement[0]} {measurement[1]} {measurement[2]}\n")
         f.close()
