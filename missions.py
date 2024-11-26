@@ -585,12 +585,10 @@ class WSNMission(Mission):
 					# Create planning files
 					try:
 						# Open the input file for reading
-						with open(defines.ORCHESTRATOR_PATH+'scenario.txt', 'r') as scenario_file:
+						with open(defines.ORCHESTRATOR_PATH+'scenario_online_setup.txt', 'r') as scenario_file:
 							# Read the contents of the file
 							content = scenario_file.readlines()
 
-						# Add drone type (TODO: need to fix this)
-						content += '0\n'
 						# Add current position
 						content += f'{self.vehicle.location.local_frame.east} {self.vehicle.location.local_frame.north} {self.vehicle.location.local_frame.down}\n'
 						# Add which node didn't respond
