@@ -44,7 +44,7 @@ class Odometer(object):
 
     # Writes contents of the odometry list to a file
     def write(self) -> float:
-        with open("Odometry/odometer_measurements.txt", "w") as f:
+        with open("odometry/odometer_measurements.txt", "w") as f:
             for measurement in self.odometry_list:
                 f.write(f"{measurement[0]} {measurement[1]} {measurement[2]}\n")
         f.close()

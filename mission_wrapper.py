@@ -29,7 +29,7 @@ class Wrapper(object):
         self.pth = Process_Thread_Holder()
         
         self.debug = defines.debug
-        missions.setSimulation(True)
+        missions.setSimulation(is_sim)
         commands.setHolder(self.pth)
         missions.setHolder(self.pth)
 

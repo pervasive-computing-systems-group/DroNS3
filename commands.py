@@ -74,6 +74,7 @@ class GainAlt(Command):
 			self.vehicle.simple_takeoff(self.target_altitude)
 		else:
 			goto_position_target_local_enu(0, 0, self.target_altitude, self.vehicle)
+		return f"Gain altitude to {self.target_altitude}"
 
 	def is_done(self):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
@@ -90,8 +91,7 @@ class Wait(Command):
 
 	def begin(self):
 		self.start_time = time.time()
-		if self.debug:
-			print("Waiting " + str(self.wait_time) + " seconds")
+		return f"Waiting {self.wait_time} seconds"
 	
 	def is_done(self):
 		self.time_elapsed = time.time() - self.start_time
@@ -108,7 +108,7 @@ class StartTimer(Command):
 		self.data_collected = 0
 
 	def begin(self):
-		pass
+		return f"Starting dummy timer"
 
 	def is_done(self):
 		return True
@@ -118,7 +118,7 @@ class StopTimer(Command):
 		pass
 
 	def begin(self):
-		pass
+		return f"Stopping dummy timer"
 
 	def is_done(self):
 		return True
@@ -140,6 +140,7 @@ class Connect(Command):
 		self.start_time = time.time()
 		generate_data.generate_data(self.bytes_sent, "send.txt")
 		self.connect()
+		return f"Connecting to send {self.bytes_sent} bytes"
 
 	#TODO: sending has no output, either need to fix that or make receiving have correct number of bytes
 	def connect(self):
@@ -192,9 +193,8 @@ class MoveToWaypoint(Command): #used to be WaypointDist
 	def begin(self):
 		self.cost = self.distance_finder()
 		self.vehicle.mode = VehicleMode('GUIDED')
-		if self.debug:
-			print("Moving to " + str(self.east) + ", " + str(self.north) + ", " + str(self.up))
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
+		return f"MoveToWaypoint {self.east}, {self.north}, {self.up}"
 
 	def distance_finder(self):
 		return abs(math.sqrt(
@@ -223,9 +223,8 @@ class PassWaypoint(Command):
 	def begin(self):
 		self.cost = self.distance_finder()
 		self.vehicle.mode = VehicleMode('GUIDED')
-		if self.debug:
-			print("Moving to " + str(self.east) + ", " + str(self.north) + ", " + str(self.up))
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
+		return f"PassWaypoint {self.east}, {self.north}, {self.up}"
 
 	def distance_finder(self):
 		return abs(math.sqrt(
@@ -238,7 +237,7 @@ class PassWaypoint(Command):
 			(self.vehicle.location.local_frame.north - self.north) ** 2 + 
 			(self.vehicle.location.local_frame.east - self.east) ** 2 + 
 			(self.vehicle.location.local_frame.down + self.up) ** 2))
-		return target_dist < 7.5
+		return target_dist < 20
 
 #TODO: More accurate commenting and naming. This should be similar to the previous one, 
 # just based off of time instead of a tolerance. Probably not the most useful.
@@ -254,6 +253,7 @@ class WaypointTime(Command):
 		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up)
 		self.time_start = time.time()
+		return f"WaypointTime {self.east}, {self.north}, {self.up} with timeout {self.seconds}"
 
 	def is_done(self):
 		seconds_elapsed = time.time() - self.time_start 
@@ -269,6 +269,7 @@ class Idle(Command):
 
 	def begin(self):
 		self.vehicle.mode = VehicleMode('GUIDED')
+		return "Idle command"
 
 	def update(self):
 		if self.can_idle and not self.is_idle:
@@ -290,10 +291,9 @@ class ReturnHome(Command):
 		self.debug = debug
 
 	def begin(self):
-		if self.debug:
-			print("Returning to " + str(self.east) + ", " + str(self.north) + ", " + str(self.up))
 		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
+		return f"Returning to {self.east}, {self.north}, {self.up}"
 
 	def distance_finder(self):
 		return abs(math.sqrt(
@@ -316,9 +316,8 @@ class Land(Command):
 		self.debug = debug
 
 	def begin(self):
-		if self.debug:
-			print("Landing . . .")
 		land_in_place(self.vehicle)
+		return "Landing . . ."
 
 	def is_done(self):
 		return self.vehicle.location.global_relative_frame.alt < 0.1
@@ -355,15 +354,14 @@ class CollectDataGeneral(Command):
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
 			holder.add_thread(self.thread)
+			return f"Starting CollectDataGeneral for node at {self.node_hostname}"
 		else:
-			print("ERROR: failed to find node info")
 			# Set complete-flag
 			self.collect_complete.set()
+			return "ERROR: failed to find node info"
 	
 	def launchCollection(self):
 		# Start comms process, wait for response
-		print("Starting data collection process")
-	
 		# Are we running the simulation?
 		if self.running_sim:
 			dist_to_node = abs(math.sqrt(
@@ -460,10 +458,11 @@ class CollectData(Command):
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
 			holder.add_thread(self.thread)
+			return f"Starting CollectData for node {self.node_ID}"
 		else:
-			print("ERROR: failed to find node " + str(self.node_ID) + " info")
 			# Set complete-flag
 			self.collect_complete.set()
+			return ("ERROR: failed to find node " + str(self.node_ID) + " info")
 
 	def launchCollection(self):
 		# Start comms process, wait for response
@@ -535,7 +534,7 @@ class CollectData(Command):
 # Run data collection script
 class CollectWSNData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)
-	def __init__(self, vehicle, node, sim = False, node_data_path = 'data/node_data.dat', comm_path = './Networking/Client/collect_data', node_data = None):
+	def __init__(self, vehicle, node, sim = False, node_data_path = 'data/node_data.dat', comm_path = './Networking/Client/collect_data', node_data = None, print_method = None):
 		# Data about the node we are connecting to:
 		self.node_ID = int(node)
 		self.east = 0
@@ -545,6 +544,7 @@ class CollectWSNData(Command):
 		self.node_type = 0
 		self.byte_to_collect = 0
 		self.node_hostname = None
+		self.sanity_print = print_method
 		# Other stuff that we need
 		self.vehicle = vehicle
 		self.thread = None
@@ -589,18 +589,25 @@ class CollectWSNData(Command):
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
 			holder.add_thread(self.thread)
+			return f"Starting CollectWSNData for node {self.node_ID}"
 		else:
-			print("ERROR:CollectWSNData: failed to find node " + str(self.node_ID) + " info")
 			# Set complete-flag
 			self.collect_complete.set()
+			return ("ERROR:CollectWSNData: failed to find node " + str(self.node_ID) + " info")
 
 	def launchCollection(self):
 		# Start comms process, wait for response
-		print(f'Collecting data from {self.node_ID}')
+		if not self.sanity_print == None:
+			self.sanity_print(f'Collecting data from {self.node_ID}')
+		else:
+			print(f'Collecting data from {self.node_ID}')
 		self.start =  time.time()
 		# Are we running the simulation?
 		if self.running_sim:
-			print(f"Simulating data TX, expecting {self.byte_to_collect} bytes")
+			if not self.sanity_print == None:
+				self.sanity_print(f"Simulating data TX, expecting {self.byte_to_collect} bytes")
+			else:
+				print(f"Simulating data TX, expecting {self.byte_to_collect} bytes")
 			dist_to_node = abs(math.sqrt(
 				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
 				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
@@ -612,21 +619,25 @@ class CollectWSNData(Command):
 			rc = child.returncode
 		else:
 			if self.communication_path is not None:
-				# Collect data using collect_data executable
-				dist_to_node = abs(math.sqrt(
-					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
-					(self.vehicle.location.local_frame.east - self.east) ** 2 + 
-					(self.vehicle.location.local_frame.down - self.altitude) ** 2))
+				if not self.sanity_print == None:
+					self.sanity_print(f"Calling data TX at {self.communication_path} for {self.node_ID}@{self.node_hostname}")
+				else:
+					print(f"Calling data TX at {self.communication_path} for {self.node_ID}@{self.node_hostname}")
 				try:
-					child = sb.Popen([self.communication_path, str(self.node_hostname), str(dist_to_node)], stdout=sb.DEVNULL)
+					child = sb.Popen([self.communication_path, str(self.node_hostname)], stdout=sb.DEVNULL)
 					holder.add_process(child)
 					child.communicate()[0]
 					rc = child.returncode
 				except Exception:
-					print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
-				
+					if not self.sanity_print == None:
+						self.sanity_print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+					else:
+						print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
 			else:
-				print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
+				if not self.sanity_print == None:
+					self.sanity_print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
+				else:
+					print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
 
 		# If return on comms process was successful, set success-flag
 		if rc == 0:
@@ -686,10 +697,11 @@ class CollectTXData(Command):
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
 			holder.add_thread(self.thread)
+			return f"Starting CollectTXData for node at {self.node_hostname}"
 		else:
-			print("ERROR:CollectWSNData: no hostname")
 			# Set complete-flag
 			self.collect_complete.set()
+			return "ERROR:CollectWSNData: no hostname"
 
 	def launchCollection(self):
 		# Start comms process, wait for response
@@ -801,10 +813,10 @@ class MoveAndCollectData(Command):
 
 	def begin(self):
 		self.cost = self.distance_finder()
-		print("Starting move-collect command for node ", self.node_ID)
 		# Move towards the node
 		self.vehicle.mode = VehicleMode('GUIDED')
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
+		return f"Starting move-collect command for node {self.node_ID}"
 
 	def update(self):
 		# Check if we found data on this node
@@ -901,16 +913,20 @@ class MoveAndCollectData(Command):
 		
 # 	def collection_success(self):
 # 		return self.collect_success
-
+# TODO: DO NOT SLEEP THIS THREAD!! Command needs refactored to use threads.
 class Sleep(Command):
 	def __init__(self, time):
 		self.time = time
 		self.is_done = False
+
 	def begin(self):
 		self.sleep()
+		return f"Slept for {self.time}"
+	
 	def sleep(self):
 		time.sleep(self.time)
 		self.is_done = True
+
 	def is_done(self):
 		return self.is_done
 

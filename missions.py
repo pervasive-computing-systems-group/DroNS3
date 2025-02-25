@@ -16,6 +16,8 @@ from telemetry import WSNData
 import telemetry
 import energy_budget
 import odometry
+import datetime
+
 '''
 TODO:
 
@@ -38,8 +40,8 @@ r_earth = 6378000
 def get_lat_lon(vehicle, relative_x, relative_y):
 	lat = vehicle.home_location.lat
 	long = vehicle.home_location.lon
-	new_latitude = lat + (relative_x / r_earth) * (180 / math.pi)
-	new_longitude = long + (relative_y / r_earth) * (180 / math.pi) / math.cos(lat * math.pi/180)
+	new_latitude = lat + (relative_y / r_earth) * (180 / math.pi)
+	new_longitude = long + (relative_x / r_earth) * (180 / math.pi) / math.cos(lat * math.pi/180)
 	return (new_latitude, new_longitude)
 
 def get_altitude(vehicle, x, y):
@@ -101,6 +103,7 @@ class Mission(object):
 	name = "Name not set"
 	thread = None
 	q = deque()					# Command queue used to store and sequentially access stored commands
+	log_file_str = datetime.datetime.now().strftime("log_%Y%m%d_%H:%M:%S.txt")
 
 	#TODO: Refactor to include optional global arguments - simulation + any others we want
 	@abc.abstractmethod
@@ -116,17 +119,26 @@ class Mission(object):
 
 	# Wrapper function for updating mission if not terminated
 	def update_wrapper(self):
-		self.command.begin()
+		status_str = self.command.begin()
+		self.sanity_print(status_str)
 		
 		#This assumes we always go to LAND - we may need some other signal to trigger the mission to pause or stop
 		#TODO: more robust failsafe
 		while not self.terminate:
-			if (vehicle.mode == VehicleMode("GUIDED") or vehicle.mode == VehicleMode("LAND")) and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
-				self.update()
+			if running_sim:
+				if (vehicle.mode == VehicleMode("GUIDED") or vehicle.mode == VehicleMode("LAND")) and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
+					self.update()
+				else:
+					time.sleep(0.1)
+					self.sanity_print(vehicle.mode, vehicle.system_status)
+					self.sanity_print("Vehicle no longer in guided or in non-stable flight mode")
 			else:
-				time.sleep(0.1)
-				print(vehicle.mode, vehicle.system_status)
-				print("Vehicle no longer in guided or in non-stable flight mode")
+				if vehicle.mode == VehicleMode("GUIDED") and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
+					self.update()
+				else:
+					time.sleep(1)
+					self.sanity_print(vehicle.mode, vehicle.system_status)
+					self.sanity_print("Vehicle no longer in guided or in non-stable flight mode")
 
 	# Periodically called to check command status/is-done
 	def update(self):
@@ -136,7 +148,8 @@ class Mission(object):
 			if self.q:
 				# Run next command
 				self.command = self.q.popleft()
-				self.command.begin()
+				status_str = self.command.begin()
+				self.sanity_print(status_str)
 			else:
 				# deque is empty
 				self.dispose()
@@ -148,6 +161,10 @@ class Mission(object):
 	def dispose(self):
 		self.terminate = True
 
+	def sanity_print(self, str):
+		with open(self.log_file_str, 'a') as status_file:
+			status_file.write(str+"\n")
+		print(str)
 	
 
 #TODO: Rename? Name not intuitive
@@ -600,6 +617,8 @@ class WSNMission(Mission):
 		with open(mission_file) as mf:
 			command_list = mf.readlines()
 
+		self.sanity_print(f"Building mission class, local simulation flag: {self.simulation}, global simulation flag: {running_sim}")
+		self.sanity_print(f"Reading in mission file: {mission_file}")
 		for c in command_list:
 			c = c.split()
 			self.addCommand(c)
@@ -616,7 +635,7 @@ class WSNMission(Mission):
 			# Was this a data collection command?
 			if isinstance(self.command, commands.CollectWSNData):
 				if not self.retry_mode and not self.command.collection_success():
-					print("Replan Mission!")
+					self.sanity_print("Replan Mission!")
 					# Create planning files
 					try:
 						# Open the input file for reading
@@ -639,28 +658,28 @@ class WSNMission(Mission):
 							# Write the modified content to the new file
 							outfile.writelines(content)
 
-						print(f"File scenario_online.txt has been created")
+						self.sanity_print(f"File scenario_online.txt has been created")
 					except FileNotFoundError:
-						print(f"Error: The file scenario.txt does not exist.")
+						self.sanity_print(f"Error: The file scenario.txt does not exist.")
 					except Exception as e:
-						print(f"An error occurred: {e}")
+						self.sanity_print(f"An error occurred: {e}")
 
 					# Call planner
-					print("Running local planner")
+					self.sanity_print("Running local planner")
 					try:
 						# Run local planner
 						process = sb.run([defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt'], check=True)
 
 						# Wait for the process to complete
 						if process.returncode == 0:
-							print("Running local planner finished!")
+							self.sanity_print("Running local planner finished!")
 							# Load new plan
 							try:
 								# Open the input file for reading
 								with open('./plan/plan_0_0.pln', 'r') as new_plan:
 									# Read the contents of the file
 									new_plan = new_plan.readlines()
-								print(f"Read in new plan!")
+								self.sanity_print(f"Read in new plan!")
 								# Load new plan
 								self.q.clear()
 								for c in new_plan:
@@ -669,15 +688,15 @@ class WSNMission(Mission):
 								self.retry_mode = True
 
 							except FileNotFoundError:
-								print(f"Error: The file ./plan/plan_0_0.pln does not exist.")
+								self.sanity_print(f"Error: The file ./plan/plan_0_0.pln does not exist.")
 						else:
-							print(f"{defines.SNS_PATH} exited with return code: {process.returncode}")
+							self.sanity_print(f"{defines.SNS_PATH} exited with return code: {process.returncode}")
 					except FileNotFoundError:
-						print(f"Error: Executable '{defines.SNS_PATH}' not found.")
+						self.sanity_print(f"Error: Executable '{defines.SNS_PATH}' not found.")
 					except sb.CalledProcessError as e:
-						print(f"Error occurred while running {defines.SNS_PATH}: {e}")
+						self.sanity_print(f"Error occurred while running {defines.SNS_PATH}: {e}")
 					except Exception as e:
-						print(f"An unexpected error occurred: {e}")
+						self.sanity_print(f"An unexpected error occurred: {e}")
 				else:
 					self.retry_mode = False
 
@@ -693,10 +712,11 @@ class WSNMission(Mission):
 			if self.q:
 				if self.simulation and isinstance(self.q[0], commands.MoveToWaypoint):
 					# Do ground avoidance in simulation
-					self.groundAvoidance(self.q[0])
+					self.groundAvoidance()
 				# Run next command
 				self.command = self.q.popleft()
-				self.command.begin()
+				begin_feedback = self.command.begin()
+				self.sanity_print(begin_feedback)
 			else:
 				# mission is complete
 				self.dispose()
@@ -706,29 +726,44 @@ class WSNMission(Mission):
 			#  Command not complete, call update
 			self.command.update()
 
-	def groundAvoidance(self, next_command):
+	def groundAvoidance(self):
 		# Verify that we are in simulation! THIS WAS NOT IMPLEMENTED FOR A PHYSICAL DRONE!
 		if not self.simulation:
-			print("WARNING: ground avoidance not implemented outside of simulation!")
+			self.sanity_print("WARNING: ground avoidance not implemented outside of simulation!")
 			return
-		print("Ground Avoidance Check")
+		elif not isinstance(self.q[0], commands.MoveToWaypoint):
+			self.sanity_print("WARNING: ground avoidance assumes next command is MoveToWaypoint! No check performed.")
+			return
+		self.sanity_print("Ground Avoidance Check")
 		# Incremental unit
 		INC_UNIT = 25
 		# Min-safety AGL
 		MIN_AGL = 8
 
+		# Verify AGL of next command
+		ground_altitude = get_relative_z(self.vehicle, self.q[0].east, self.q[0].north)
+		next_agl = self.q[0].up - ground_altitude
+		# Are we too low?
+		if next_agl < MIN_AGL:
+			# TOO-LOW!
+			self.sanity_print("WARNING: plan calls for collision conditions!")
+			new_z = ground_altitude + MIN_AGL + 2
+			self.sanity_print(f"  Updating z {self.q[0].up} -> {new_z}")
+			self.q[0].up = new_z
+
 		# Get the desired position (position 0) - we work backwards from here
-		x_0 = next_command.north
-		y_0 = next_command.east
-		z_0 = next_command.up
+		x_0 = self.q[0].east
+		y_0 = self.q[0].north
+		z_0 = self.q[0].up
 		# Get our current position (position 1) - we work towards this point
-		x_1 = self.vehicle.location.local_frame.north
-		y_1 = self.vehicle.location.local_frame.east
+		x_1 = self.vehicle.location.local_frame.east
+		y_1 = self.vehicle.location.local_frame.north
 		z_1 = -self.vehicle.location.local_frame.down # (is flipped)
 		
 		# Start from position 0 and work backwards to position 1, in increments of INC_UNIT meters
 		dist_to_go = math.sqrt((x_0 - x_1)**2 + (y_0 - y_1)**2 + (z_0 - z_1)**2)
-		while dist_to_go > INC_UNIT:
+
+		while dist_to_go > INC_UNIT*2:
 			# Get position INC_UNIT meters away from position 0
 			t = INC_UNIT/dist_to_go
 			x_t = (1 - t)*x_0 + t*x_1
@@ -741,7 +776,7 @@ class WSNMission(Mission):
 			if agl < MIN_AGL:
 				# Yes, move z_t to minimum altitude and push new pass-by command onto queue
 				z_t = ground_altitude + MIN_AGL
-				self.q.appendleft(commands.PassWaypoint(y_t, x_t, z_t, self.vehicle, self.debug))
+				self.q.appendleft(commands.PassWaypoint(x_t, y_t, z_t, self.vehicle, self.debug))
 
 			# Update position 0
 			x_0 = x_t
@@ -773,15 +808,15 @@ class WSNMission(Mission):
 				if len(c) == 2:
 					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data_path = 'data/node_info.dat', comm_path = './Networking/Client/collect_data'))
 				elif len(c) == 9: # cmd-5 node-id x y z safe-agl bytes node-type node-ip
-					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = './Networking/Client/collect_data'))
+					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = './Networking/Client/collect_data', print_method = self.sanity_print))
 				else:
-					print(f"Bad number of arguments! Command: {c[0]}")
+					self.sanity_print(f"Bad number of arguments! Command: {c[0]}")
 			elif c[0] == "6":
 				if len(c) == 4: # cmd-6 node-ip distance bytes
 					# self, vehicle, sim = False, node_ip='localhost', distance=0, bytes=1000, comm_path = './Networking/Client/collect_data'
 					self.q.append(commands.CollectTXData(self.vehicle, sim = False, node_ip=c[1], distance=c[2], bytes=c[3], comm_path = './Networking/Client/collect_data'))
 				else:
-					print(f"Bad number of arguments! Command: {c[0]}")
+					self.sanity_print(f"Bad number of arguments! Command: {c[0]}")
 			elif c[0] == "7": # Move through waypoint
 				if len(c) == 4:
 					self.q.append(commands.PassWaypoint(float(c[1]), float(c[2]), float(c[3]),self.vehicle, debug = self.debug))
