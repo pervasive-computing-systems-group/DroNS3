@@ -27,9 +27,10 @@ class Wrapper(object):
     def __init__(self, is_sim=True) -> None:
 
         self.pth = Process_Thread_Holder()
+        self.in_simulation = is_sim
         
         self.debug = defines.debug
-        missions.setSimulation(is_sim)
+        missions.setSimulation(self.in_simulation)
         commands.setHolder(self.pth)
         missions.setHolder(self.pth)
 
@@ -38,7 +39,7 @@ class Wrapper(object):
         missions.setSeed(seed)
 
         # Connect to pixhawk over UART or simulation at localhost
-        if (is_sim):
+        if (self.in_simulation):
             print("Connect to simulation vehicle")
             self.vehicle = connect('localhost:14550', wait_ready=True)
         else:
@@ -85,19 +86,23 @@ class Wrapper(object):
         self.state['mission'] = mission
         if mission == None:
             self.state['mission'] = missions.General(self.vehicle)
-        print("Starting mission", self.state['mission'].name)
+        if not self.in_simulation:
+            while not (self.vehicle.mode == VehicleMode("GUIDED")):
+                time.sleep(1.0)
+                self.state['mission'].sanity_print(f"Waiting for Guided mode. Currently in {self.vehicle.mode}, status: {self.vehicle.system_status}")
+        self.state['mission'].sanity_print(f"Starting mission {self.state['mission'].name}")
         # For simulation, set GUIDED mode and arm before starting a mission
         self.guided_and_arm()
         self.state['mission'].start()
         self.vehicle.close()
 
     def guided_and_arm(self):
-        print("Set Mode to GUIDED")
+        self.state['mission'].sanity_print("Set Mode to GUIDED")
         self.vehicle.mode = VehicleMode("GUIDED")
-        print("Arming motors")
+        self.state['mission'].sanity_print("Arming motors")
         self.vehicle.armed = True
         while not self.vehicle.mode.name=='GUIDED' and not self.vehicle.armed:
-            print(" Getting ready to take off ...")
+            self.state['mission'].sanity_print(" Getting ready to take off ...")
             time.sleep(1)
 
     def signal_handler(self, signum, frame):

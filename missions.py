@@ -113,9 +113,8 @@ class Mission(object):
 	def start(self):
 		self.thread = threading.Thread(target=self.update_wrapper, name=self.name)
 		self.thread.start()
-		if running_sim:
-			# Wait here for the thread to re-join
-			self.thread.join()
+		# Wait here for the thread to re-join
+		self.thread.join()
 
 	# Wrapper function for updating mission if not terminated
 	def update_wrapper(self):
@@ -138,7 +137,7 @@ class Mission(object):
 				else:
 					time.sleep(1)
 					self.sanity_print(vehicle.mode, vehicle.system_status)
-					self.sanity_print("Vehicle no longer in guided or in non-stable flight mode")
+					self.sanity_print("Vehicle no longer in guided or in non-stable flight mode: {vehicle.mode}:{vehicle.system_status}")
 
 	# Periodically called to check command status/is-done
 	def update(self):
