@@ -129,14 +129,12 @@ class Mission(object):
 					self.update()
 				else:
 					time.sleep(0.1)
-					self.sanity_print(vehicle.mode, vehicle.system_status)
-					self.sanity_print("Vehicle no longer in guided or in non-stable flight mode")
+					self.sanity_print("Vehicle no longer in guided or in non-stable flight mode: {vehicle.mode}:{vehicle.system_status}")
 			else:
 				if vehicle.mode == VehicleMode("GUIDED") and (vehicle.system_status == "ACTIVE" or vehicle.system_status == "STANDBY"):
 					self.update()
 				else:
 					time.sleep(1)
-					self.sanity_print(vehicle.mode, vehicle.system_status)
 					self.sanity_print("Vehicle no longer in guided or in non-stable flight mode: {vehicle.mode}:{vehicle.system_status}")
 
 	# Periodically called to check command status/is-done
