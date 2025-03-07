@@ -2,7 +2,7 @@ import missions
 import subprocess as sb
 from mission_wrapper import Wrapper
 
-MISSION_FILE = "/home/minespecs/Research/HolisticFramework/DroNS3/plan"
+MISSION_FILE = "/home/pi/DroNS3/plan/field_day.pln"
 
 # To run the simulation, open a terminal in ardupilot/ArduCopter and run:
 # sim_vehicle.py -f quad -L CSM_SurveyField --console --map --osd
