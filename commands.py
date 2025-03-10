@@ -42,6 +42,7 @@ def get_xy(passed_vehicle):
 
 class Command(object):
 	__metaclass__ = abc.ABCMeta
+	timer = 0
 
 	def __init__(self):
 		pass
@@ -75,6 +76,15 @@ class GainAlt(Command):
 		else:
 			goto_position_target_local_enu(0, 0, self.target_altitude, self.vehicle)
 		return f"Gain altitude to {self.target_altitude}"
+
+	def update(self):
+		self.timer += 1
+		if self.timer >= 10:
+			# Resend command
+			self.timer = 0
+			return self.begin()
+		else:
+			time.sleep(0.1)
 
 	def is_done(self):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
@@ -196,6 +206,15 @@ class MoveToWaypoint(Command): #used to be WaypointDist
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 		return f"MoveToWaypoint {self.east}, {self.north}, {self.up}"
 
+	def update(self):
+		self.timer += 1
+		if self.timer >= 10:
+			# Resend command
+			self.timer = 0
+			return self.begin()
+		else:
+			time.sleep(0.1)
+
 	def distance_finder(self):
 		return abs(math.sqrt(
 					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
@@ -226,6 +245,15 @@ class PassWaypoint(Command):
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 		return f"PassWaypoint {self.east}, {self.north}, {self.up}"
 
+	def update(self):
+		self.timer += 1
+		if self.timer >= 10:
+			# Resend command
+			self.timer = 0
+			return self.begin()
+		else:
+			time.sleep(0.1)
+
 	def distance_finder(self):
 		return abs(math.sqrt(
 					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
@@ -254,6 +282,15 @@ class WaypointTime(Command):
 		goto_position_target_local_enu(self.east, self.north, self.up)
 		self.time_start = time.time()
 		return f"WaypointTime {self.east}, {self.north}, {self.up} with timeout {self.seconds}"
+
+	def update(self):
+		self.timer += 1
+		if self.timer >= 10:
+			self.timer = 0
+			goto_position_target_local_enu(self.east, self.north, self.up)
+			return f"WaypointTime {self.east}, {self.north}, {self.up} with timeout {self.seconds - (time.time() - self.time_start)}"
+		else:
+			time.sleep(0.1)
 
 	def is_done(self):
 		seconds_elapsed = time.time() - self.time_start 
@@ -295,6 +332,15 @@ class ReturnHome(Command):
 		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
 		return f"Returning to {self.east}, {self.north}, {self.up}"
 
+	def update(self):
+		self.timer += 1
+		if self.timer >= 10:
+			# Resend command
+			self.timer = 0
+			return self.begin()
+		else:
+			time.sleep(0.1)
+
 	def distance_finder(self):
 		return abs(math.sqrt(
 					(self.vehicle.location.local_frame.north - self.north) ** 2 + 
@@ -318,6 +364,15 @@ class Land(Command):
 	def begin(self):
 		land_in_place(self.vehicle)
 		return "Landing . . ."
+
+	def update(self):
+		self.timer += 1
+		if self.timer >= 10:
+			# Resend command
+			self.timer = 0
+			return self.begin()
+		else:
+			time.sleep(0.1)
 
 	def is_done(self):
 		return self.vehicle.location.global_relative_frame.alt < 0.1
@@ -932,17 +987,6 @@ class Sleep(Command):
 
 def land_in_place(passed_vehicle):
 	passed_vehicle.mode = VehicleMode("LAND")
-	print("Landing")
-
-	# Wait until the vehicle reaches the ground
-	while True:
-		# print(" Altitude: ", vehicle.location.global_relative_frame.alt)
-		if passed_vehicle.location.global_relative_frame.alt < 0.1:
-			print("Landed")
-			break
-		time.sleep(1)
-
-	passed_vehicle.close()
 
 def goto_position_target_local_enu(east, north, up, passed_vehicle):
 	down = -up

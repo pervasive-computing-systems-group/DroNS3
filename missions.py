@@ -104,6 +104,8 @@ class Mission(object):
 	thread = None
 	q = deque()					# Command queue used to store and sequentially access stored commands
 	log_file_str = datetime.datetime.now().strftime("log_%Y%m%d_%H:%M:%S.txt")
+	# Update rate (in Hz). 10 Hz means run update function 10 times each second
+	rate = 10
 
 	#TODO: Refactor to include optional global arguments - simulation + any others we want
 	@abc.abstractmethod
@@ -721,7 +723,9 @@ class WSNMission(Mission):
 		# Current command isn't complete, call update on command
 		else:
 			#  Command not complete, call update
-			self.command.update()
+			update_response = self.command.update()
+			if not update_response == None:
+				self.sanity_print(update_response)
 
 	def groundAvoidance(self):
 		# Verify that we are in simulation! THIS WAS NOT IMPLEMENTED FOR A PHYSICAL DRONE!
