@@ -103,7 +103,7 @@ class Mission(object):
 	name = "Name not set"
 	thread = None
 	q = deque()					# Command queue used to store and sequentially access stored commands
-	log_file_str = datetime.datetime.now().strftime("log_%Y%m%d_%H:%M:%S.txt")
+	log_file_str = datetime.datetime.now().strftime("logs/log_%Y%m%d_%H:%M:%S.txt")
 	# Update rate (in Hz). 10 Hz means run update function 10 times each second
 	rate = 10
 
