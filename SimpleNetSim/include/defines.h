@@ -1,5 +1,5 @@
 // Debug flag
-#define DEBUG	0
+#define DEBUG	1
 
 // Prints debugging message dbgString if DEBUG flag is set
 void debugPrint(const char *dbgString) {

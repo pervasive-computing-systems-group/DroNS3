@@ -6,14 +6,19 @@
 #include <thread>
 #include <boost/numeric/conversion/cast.hpp>
 
+#include "defines.h"
 
-static const double distance_data_0[] = {2.0,5.0,10.0,15.0,20.0,30.0};
-static const double k_data_0[] = {16.566151253635788, 17.97621241198601, 6.3858853724124085, 3.7043053126055225, 4.8078989387905935, 2.24308914153775};
-static const double lambda_data_0[] = {5.543630764883076, 4.8978866265994885, 3.0472871099258754, 2.199103363551945 , 1.2793297962798627, 0.43230539218152975};
 
-static const double distance_data_1[] = {2.0,5.0,10.0,15.0,20.0,30.0,40.0};
-static const double k_data_1[] = {8.055053731672167, 13.095538470432244, 17.361852245076214, 6.196791524528894, 4.909501855491459, 5.230407299614457, 2.8225714889111297};
-static const double lambda_data_1[] = {5.192666699797578, 5.038390674565392, 4.858697263620757, 3.9344934766315793, 2.7642056298343194, 1.6213144364702052, 0.46840007312263227};
+static const double distance_data_0[] = {2.0,5.0,10.0,15.0,20.0,30.0,40.0};
+static const double k_data_0[] = {16.566151253635788, 17.97621241198601, 6.3858853724124085, 3.7043053126055225, 4.8078989387905935, 2.24308914153775, 1.0};
+static const double lambda_data_0[] = {5.543630764883076, 4.8978866265994885, 3.0472871099258754, 2.199103363551945 , 1.2793297962798627, 0.43230539218152975, 0.01};
+
+static const double distance_data_1[] = {2.0,5.0,10.0,15.0,20.0,30.0,40.0,45.0};
+static const double k_data_1[] = {8.055053731672167, 13.095538470432244, 17.361852245076214, 6.196791524528894, 4.909501855491459, 5.230407299614457, 2.8225714889111297, 1.0};
+static const double lambda_data_1[] = {5.192666699797578, 5.038390674565392, 4.858697263620757, 3.9344934766315793, 2.7642056298343194, 1.6213144364702052, 0.46840007312263227, 0.01};
+
+static const double max_rate[] = {5.4, 4.9};
+static const double min_rate[] = {0.4, 0.75};
 
 int main(int argc, char *argv[]) {
 	// Vectors with field data
@@ -73,7 +78,7 @@ int main(int argc, char *argv[]) {
 		k = k_vctr.at(node_type).at(0);
 		lambda = lambda_vctr.at(node_type).at(0);
 	}
-	else if(distance > distance_vctr.at(node_type).back()) {
+	else if(distance >= distance_vctr.at(node_type).back()) {
 		// Just use last values
 		k = k_vctr.at(node_type).back();
 		lambda = lambda_vctr.at(node_type).back();
@@ -113,42 +118,48 @@ int main(int argc, char *argv[]) {
 	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator (seed);
 
-
-	const int nrolls=10000;  // number of experiments
-	const int nstars=100;    // maximum number of stars to distribute
-
-	int p[10]={};
-	int failure = 0;
-	int max_rate = 0;
-
-	for(int i=0; i<nrolls; ++i) {
-		double number = distribution(generator);
-		if(number < 0) {
-			failure++;
+	if(DEBUG) {
+		printf("Dist = %.1f, bytes = %d, Weibull Distribution (%f,%f):\n", distance, bytes, k, lambda);
+	
+		const int nrolls=10000;  // number of experiments
+		const int nstars=100;    // maximum number of stars to distribute
+	
+		int p[10]={};
+		int failure = 0;
+		int max_tx = 0;
+	
+		for(int i=0; i<nrolls; ++i) {
+			double rate = distribution(generator);
+			if(rate < min_rate[node_type]) {
+				failure++;
+			}
+			else if(rate > max_rate[node_type]) {
+				max_tx++;
+			}
+			else {
+				int index = int(rate*(10/max_rate[node_type]));
+				p[int(index)]++;
+			}
 		}
-		else if(number > 0.3) {
-			max_rate++;
+	
+		std::cout << "Failure: " << std::string(failure*nstars/nrolls,'*') << std::endl;
+		for(int i=0; i<10; ++i) {
+			std::cout << i*(max_rate[node_type]/10) << "\t-\t" << (i+1)*(max_rate[node_type]/10) << ": \t";
+			std::cout << std::string(p[i]*nstars/nrolls,'*') << std::endl;
 		}
-		else {
-			int index = int(number*(10/0.3));
-			++p[int(index)];
-		}
-	}
-
-	printf("weibull_distribution (%f,%f):\n", k, lambda);
-
-	for(int i=0; i<10; ++i) {
-		std::cout << i*(0.3/10) << "-" << (i+1)*(0.3/10) << ": \t";
-		std::cout << std::string(p[i]*nstars/nrolls,'*') << std::endl;
+		std::cout << "Max-rate: " << std::string(max_tx*nstars/nrolls,'*') << std::endl;
 	}
 
 	double tx_rate = distribution(generator);
 
 	// Ensure that we can actually talk to the node...
-	if(tx_rate >= 0.05) {
-		double time = (bytes/1000000.0)/tx_rate;
+	if(tx_rate >= min_rate[node_type]) {
+		double time = (bytes/1048576.0)/tx_rate;
 
-		printf("TX-rate = %f\nTime to transfer data: %f s\n", tx_rate,time);
+		if(DEBUG) {
+			printf("TX-rate = %f\nTime to transfer data: %f s\n", tx_rate,time);
+		}
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(int(time*1000)));
 	}
 	else {
