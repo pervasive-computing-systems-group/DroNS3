@@ -4,6 +4,8 @@ import math
 # This class is used to store odometry information to a text file.
 class Odometer(object):
     def __init__(self, vehicle) -> None:
+        self.average_speed = 10
+        self.speed_count = 0
         # Last positions for calculating displacement every update
         self.last_north = 0
         self.last_east = 0
@@ -21,6 +23,18 @@ class Odometer(object):
         dt = current_time - self.last_time
         # Calculate displacement
         displacement = self.displacement_finder()
+
+        # Did we move?
+        if displacement > 1:
+            # Is this the first speed measurement?
+            if self.speed_count == 0:
+                # Set first speed
+                self.average_speed = displacement/dt
+                self.speed_count += 1
+            else:
+                speed = displacement/dt
+                self.speed_count += 1
+                self.average_speed += (speed - self.average_speed) / self.speed_count
 
         # Update last position to current position
         self.last_north = self.vehicle.location.local_frame.north

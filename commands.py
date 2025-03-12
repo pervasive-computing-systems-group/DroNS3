@@ -638,13 +638,19 @@ class CollectWSNData(Command):
 		self.collect_complete = Event()
 		self.collect_complete.clear()
 
+	def sanity_printing(self, string):
+		if not self.sanity_print == None:
+			self.sanity_print(string)
+		else:
+			print(string)
+
 	def begin(self):
 		# Create thread for comms process
 		if self.node_hostname is not None:
 			self.thread = Thread(target=self.launchCollection)
 			self.thread.start()
 			holder.add_thread(self.thread)
-			return f"Starting CollectWSNData for node {self.node_ID}"
+			return f"CollectWSNData for node {self.node_ID}"
 		else:
 			# Set complete-flag
 			self.collect_complete.set()
@@ -659,14 +665,11 @@ class CollectWSNData(Command):
 		self.start =  time.time()
 		# Are we running the simulation?
 		if self.running_sim:
-			if not self.sanity_print == None:
-				self.sanity_print(f"Simulating data TX, expecting {self.byte_to_collect} bytes")
-			else:
-				print(f"Simulating data TX, expecting {self.byte_to_collect} bytes")
 			dist_to_node = abs(math.sqrt(
 				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
 				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
-				(self.vehicle.location.local_frame.down - self.altitude) ** 2))
+				(self.vehicle.location.local_frame.down + self.altitude) ** 2))
+			self.sanity_printing(f"CollectWSNData: Simulating data TX at {dist_to_node}, expecting {self.byte_to_collect} bytes")
 			# Collect data using SimpleNetSim
 			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect)],  stdout=sb.DEVNULL)
 			holder.add_process(child)
@@ -674,37 +677,29 @@ class CollectWSNData(Command):
 			rc = child.returncode
 		else:
 			if self.communication_path is not None:
-				if not self.sanity_print == None:
-					self.sanity_print(f"Calling data TX at {self.communication_path} for {self.node_ID}@{self.node_hostname}")
-				else:
-					print(f"Calling data TX at {self.communication_path} for {self.node_ID}@{self.node_hostname}")
+				self.sanity_printing(f"CollectWSNData: Calling data TX at {self.communication_path} for {self.node_ID}@{self.node_hostname}")
 				try:
 					child = sb.Popen([self.communication_path, str(self.node_hostname)], stdout=sb.DEVNULL)
 					holder.add_process(child)
 					child.communicate()[0]
 					rc = child.returncode
 				except Exception:
-					if not self.sanity_print == None:
-						self.sanity_print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
-					else:
-						print("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+					self.sanity_printing("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
 			else:
-				if not self.sanity_print == None:
-					self.sanity_print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
-				else:
-					print("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
-
-		# If return on comms process was successful, set success-flag
-		if rc == 0:
-			self.collect_success.set()
-		# else, leave success-flag unset
-		else:
-			print("failed to collect from node " + str(self.node_ID))
+				self.sanity_printing("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
 		
 		self.end = time.time()
 		self.time = self.end-self.start
 		# Set complete-flag, rejoin
 		self.collect_complete.set()
+
+		# If return on comms process was successful, set success-flag
+		if rc == 0:
+			self.collect_success.set()
+			self.sanity_printing(f"Successfully collected data, time: {self.time}")
+		# else, leave success-flag unset
+		else:
+			self.sanity_printing("Failed to collect from node " + str(self.node_ID))
 	
 	def distance_finder(self):
 		return abs(math.sqrt(

@@ -641,6 +641,9 @@ class WSNMission(Mission):
 						with open(defines.ORCHESTRATOR_PATH+'scenario_online_setup.txt', 'r') as scenario_file:
 							# Read the contents of the file
 							content = scenario_file.readlines()
+						
+						# Add speed and precent of budget left
+						content += f'{self.odometer.average_speed} {1.0}\n'
 
 						# Add current position
 						content += f'{self.vehicle.location.local_frame.east} {self.vehicle.location.local_frame.north} {self.vehicle.location.local_frame.down}\n'
@@ -667,7 +670,13 @@ class WSNMission(Mission):
 					self.sanity_print("Running local planner")
 					try:
 						# Run local planner
-						process = sb.run([defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt'], check=True)
+						if self.simulation:
+							# Run local planner with scenario file. Print plan but not for a real drone.
+							process = sb.run([defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt', '1', '0'], check=True)
+						else:
+							# Run local planner with scenario file. Print plan for the field.
+							process = sb.run([defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt', '1', '1'], check=True)
+
 
 						# Wait for the process to complete
 						if process.returncode == 0:
@@ -675,7 +684,7 @@ class WSNMission(Mission):
 							# Load new plan
 							try:
 								# Open the input file for reading
-								with open('./plan/plan_0_0.pln', 'r') as new_plan:
+								with open('./plan_online/plan_0_0.pln', 'r') as new_plan:
 									# Read the contents of the file
 									new_plan = new_plan.readlines()
 								self.sanity_print(f"Read in new plan!")
@@ -687,7 +696,7 @@ class WSNMission(Mission):
 								self.retry_mode = True
 
 							except FileNotFoundError:
-								self.sanity_print(f"Error: The file ./plan/plan_0_0.pln does not exist.")
+								self.sanity_print(f"Error: The file ./plan_online/plan_0_0.pln does not exist.")
 						else:
 							self.sanity_print(f"{defines.SNS_PATH} exited with return code: {process.returncode}")
 					except FileNotFoundError:
