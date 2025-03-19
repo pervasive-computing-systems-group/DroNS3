@@ -88,7 +88,7 @@ class GainAlt(Command):
 
 	def is_done(self):
 		diff = abs(self.vehicle.location.global_relative_frame.alt - self.target_altitude)
-		return diff < 0.5
+		return diff < 2.0
 
 class Wait(Command):
 	def __init__(self, wait_time, passed_vehicle, debug = False):
@@ -589,7 +589,7 @@ class CollectData(Command):
 # Run data collection script
 class CollectWSNData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)
-	def __init__(self, vehicle, node, sim = False, node_data_path = 'data/node_data.dat', comm_path = './Networking/Client/collect_data', node_data = None, print_method = None):
+	def __init__(self, vehicle, node, sim = False, node_data_path = 'data/node_data.dat', comm_path = defines.ORCHESTRATOR_PATH+'DroNS3/Networking/Client/collect_data', node_data = None, print_method = None):
 		# Data about the node we are connecting to:
 		self.node_ID = int(node)
 		self.east = 0

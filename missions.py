@@ -161,10 +161,11 @@ class Mission(object):
 		self.terminate = True
 
 	def sanity_print(self, str):
+		time_now = time.time()
 		with open(self.log_file_str, 'a') as status_file:
-			status_file.write(str+"\n")
-		print(str)
-	
+			status_file.write(f"{time_now}:{str}\n")
+		print(f"{time_now}:{str}")
+
 
 #TODO: Rename? Name not intuitive
 class Manual(Mission):
@@ -675,6 +676,7 @@ class WSNMission(Mission):
 							process = sb.run([defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt', '1', '0'], check=True)
 						else:
 							# Run local planner with scenario file. Print plan for the field.
+							self.sanity_print(defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt', '1', '1')
 							process = sb.run([defines.LOCAL_PLANNER_PATH, defines.ORCHESTRATOR_PATH+'scenario_online.txt', '1', '1'], check=True)
 
 
@@ -684,7 +686,7 @@ class WSNMission(Mission):
 							# Load new plan
 							try:
 								# Open the input file for reading
-								with open('./plan_online/plan_0_0.pln', 'r') as new_plan:
+								with open(defines.ORCHESTRATOR_PATH+'plan_online/plan_0_0.pln', 'r') as new_plan:
 									# Read the contents of the file
 									new_plan = new_plan.readlines()
 								self.sanity_print(f"Read in new plan!")
@@ -696,13 +698,13 @@ class WSNMission(Mission):
 								self.retry_mode = True
 
 							except FileNotFoundError:
-								self.sanity_print(f"Error: The file ./plan_online/plan_0_0.pln does not exist.")
+								self.sanity_print(f"Error: The file {defines.ORCHESTRATOR_PATH+'plan_online/plan_0_0.pln'} does not exist.")
 						else:
-							self.sanity_print(f"{defines.SNS_PATH} exited with return code: {process.returncode}")
+							self.sanity_print(f"{defines.LOCAL_PLANNER_PATH} exited with return code: {process.returncode}")
 					except FileNotFoundError:
-						self.sanity_print(f"Error: Executable '{defines.SNS_PATH}' not found.")
+						self.sanity_print(f"Error: Executable '{defines.LOCAL_PLANNER_PATH}' not found.")
 					except sb.CalledProcessError as e:
-						self.sanity_print(f"Error occurred while running {defines.SNS_PATH}: {e}")
+						self.sanity_print(f"Error occurred while running {defines.LOCAL_PLANNER_PATH}: {e}")
 					except Exception as e:
 						self.sanity_print(f"An unexpected error occurred: {e}")
 				else:
@@ -818,7 +820,7 @@ class WSNMission(Mission):
 				if len(c) == 2:
 					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data_path = 'data/node_info.dat', comm_path = './Networking/Client/collect_data'))
 				elif len(c) == 9: # cmd-5 node-id x y z safe-agl bytes node-type node-ip
-					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = './Networking/Client/collect_data', print_method = self.sanity_print))
+					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = defines.ORCHESTRATOR_PATH+'DroNS3/Networking/Client/collect_data', print_method = self.sanity_print))
 				else:
 					self.sanity_print(f"Bad number of arguments! Command: {c[0]}")
 			elif c[0] == "6":

@@ -1,8 +1,9 @@
 import missions
 import subprocess as sb
 from mission_wrapper import Wrapper
+import defines
 
-MISSION_FILE = "/home/pi/DroNS3/plan/field_day.pln"
+MISSION_FILE = defines.ORCHESTRATOR_PATH+"Field_Inputs/field_day.pln"
 
 # To run the simulation, open a terminal in ardupilot/ArduCopter and run:
 # sim_vehicle.py -f quad -L CSM_SurveyField --console --map --osd

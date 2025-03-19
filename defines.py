@@ -3,7 +3,7 @@ NS_3_PATH = "/home/minespecs/NS3/ns-allinone-3.36.1/ns-3.36.1/ns3"
 
 ## Holistic planner paths
 # Path to the orchestrator director (i.e. "/home/...")
-ORCHESTRATOR_PATH = "/home/minespecs/Research/HolisticFramework/"
+ORCHESTRATOR_PATH = "/home/pi/HolisticFramework/"
 # Path to SimpleNetSim executable from the root directory (i.e. "/home/...")
 SNS_PATH = ORCHESTRATOR_PATH+"DroNS3/SimpleNetSim/Simulation/sim"
 # Path to LocalPlanner from the root directory (i.e. "/home/...")
