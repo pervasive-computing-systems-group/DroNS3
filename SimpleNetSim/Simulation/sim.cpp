@@ -8,6 +8,7 @@
 
 #include "defines.h"
 
+#define BYTE_IN_MB	1048576
 
 static const double distance_data_0[] = {2.0,5.0,10.0,15.0,20.0,30.0,40.0};
 static const double k_data_0[] = {16.566151253635788, 17.97621241198601, 6.3858853724124085, 3.7043053126055225, 4.8078989387905935, 2.24308914153775, 1.0};
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
 	double distance = 10.0;
 	int bytes = 1000000;
 	int node_type = 1;
+	bool short_timeout = false;
 	double k, lambda;
 
 	// Verify user input
@@ -67,8 +69,15 @@ int main(int argc, char *argv[]) {
 		bytes = atoi(argv[2]);
 		node_type = atoi(argv[3]);
 	}
+	else if(argc == 5) {
+		// Extract 3 arguments
+		distance = atof(argv[1]);
+		bytes = atoi(argv[2]);
+		node_type = atoi(argv[3]);
+		short_timeout = atoi(argv[4]);
+	}
 	else {
-		fprintf(stderr, "Received %d args, expected 2.\nExpected use:\t./sim <distance> <bytes-sent> [node-type]\n\n", (argc-1));
+		fprintf(stderr, "Received %d args, expected 2.\nExpected use:\t./sim <distance> <bytes-sent> [node-type] [short-timeout]\n\n", (argc-1));
 		exit(1);
 	}
 
@@ -154,17 +163,25 @@ int main(int argc, char *argv[]) {
 
 	// Ensure that we can actually talk to the node...
 	if(tx_rate >= min_rate[node_type]) {
-		double time = (bytes/1048576.0)/tx_rate;
+		double tx_time = (bytes/double(BYTE_IN_MB))/tx_rate;
 
 		if(DEBUG) {
-			printf("TX-rate = %f\nTime to transfer data: %f s\n", tx_rate,time);
+			printf("TX-rate = %f\nTime to transfer data: %f s\n", tx_rate, tx_time);
 		}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(int(time*1000)));
+		std::this_thread::sleep_for(std::chrono::milliseconds(int(tx_time*1000)));
 	}
 	else {
 		// We weren't so lucky...
 		printf("TX-rate too low: %f\n", tx_rate);
+		if(short_timeout) {
+			// Don't stall long here...
+			std::this_thread::sleep_for(std::chrono::milliseconds(int(1000)));
+		}
+		else {
+			std::this_thread::sleep_for(std::chrono::milliseconds(int(3000)));
+		}
+
 		return 1;
 	}
 

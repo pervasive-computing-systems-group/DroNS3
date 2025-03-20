@@ -671,7 +671,8 @@ class CollectWSNData(Command):
 				(self.vehicle.location.local_frame.down + self.altitude) ** 2))
 			self.sanity_printing(f"CollectWSNData: Simulating data TX at {dist_to_node}, expecting {self.byte_to_collect} bytes")
 			# Collect data using SimpleNetSim
-			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect)],  stdout=sb.DEVNULL)
+			# ./sim <distance> <bytes-sent> [node-type] [short-timeout]
+			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect), str(self.node_type)],  stdout=sb.DEVNULL)
 			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
@@ -709,6 +710,161 @@ class CollectWSNData(Command):
 
 	def is_done(self):
 		if self.collect_complete.is_set():
+			if self.thread is not None:
+				self.thread.join()
+			return True
+		else:
+			return False
+		
+	def collection_success(self):
+		return self.collect_success.is_set()
+
+
+# Run data collection script
+class CollectNMove(Command):
+	# Collect data from node, with node communication range node_range (for simulation)
+	def __init__(self, passed_vehicle, mv_east, mv_north, mv_up, tolerance, node, sim = False, node_data_path = 'data/node_data.dat', comm_path = defines.ORCHESTRATOR_PATH+'DroNS3/Networking/Client/collect_data', node_data = None, print_method = None):
+		# Move info:
+		self.mv_east = mv_east
+		self.mv_north = mv_north
+		self.mv_up = mv_up
+		self.tolerance = tolerance
+		# Data about the node we are connecting to:
+		self.node_ID = int(node)
+		self.east = 0
+		self.north = 0
+		self.altitude = 0
+		self.safeAGL = 0
+		self.node_type = 0
+		self.byte_to_collect = 0
+		self.node_hostname = None
+		self.sanity_print = print_method
+		# Other stuff that we need
+		self.vehicle = passed_vehicle
+		self.thread = None
+		self.running_sim = sim
+		self.node_path = node_data_path
+		self.communication_path = comm_path
+		# Fill in node data
+		if node_data == None:
+			# Read node info from a file...
+			file1 = open(self.node_path)
+			# Find this node in the file
+			for aline in file1:
+				values = aline.split()
+				if int(values[0]) == self.node_ID:
+					self.node_hostname = values[1]
+					self.east = float(values[2])
+					self.north = float(values[3])
+					self.altitude = float(values[4])
+					self.byte_to_collect = 1000000
+					break
+			file1.close()
+		else:
+			# Get node data from node_data argument
+			# node_data = [x, y, z, z_s, Q, type, ip]
+			self.east = node_data[0]
+			self.north = node_data[1]
+			self.altitude = node_data[2]
+			self.safeAGL = node_data[3]
+			self.byte_to_collect = node_data[4]
+			self.node_type = node_data[5]
+			self.node_hostname = node_data[6]
+		
+		# Thread events for collection success/complete
+		self.collect_success = Event()
+		self.collect_success.clear()
+		self.collect_complete = Event()
+		self.collect_complete.clear()
+
+	def sanity_printing(self, string):
+		if not self.sanity_print == None:
+			self.sanity_print(string)
+		else:
+			print(string)
+
+	def begin(self):
+		self.vehicle.mode = VehicleMode('GUIDED')
+		goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
+
+		# Create thread for comms process
+		if self.node_hostname is not None:
+			self.thread = Thread(target=self.launchCollection)
+			self.thread.start()
+			holder.add_thread(self.thread)
+			return f"CollectNMove node = {self.node_ID}:({self.east}, {self.north}, {self.up}), move position = ({self.mv_east}, {self.mv_north}, {self.mv_up})"
+		else:
+			# Set complete-flag
+			self.collect_complete.set()
+			return ("ERROR:CollectWSNData: failed to find node " + str(self.node_ID) + " info")
+
+	def launchCollection(self):
+		# Start comms process, wait for response
+		self.sanity_printing(f'Collecting data from {self.node_ID}')
+		self.start =  time.time()
+		# Are we running the simulation?
+		if self.running_sim:
+			dist_to_node = abs(math.sqrt(
+				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+				(self.vehicle.location.local_frame.down + self.altitude) ** 2))
+			self.sanity_printing(f"CollectWSNData: Simulating data TX at {dist_to_node}, expecting {self.byte_to_collect} bytes")
+			# Collect data using SimpleNetSim
+			# ./sim <distance> <bytes-sent> [node-type] [short-timeout]
+			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect), str(self.node_type), "1"],  stdout=sb.DEVNULL)
+			holder.add_process(child)
+			child.communicate()[0]
+			rc = child.returncode
+		else:
+			if self.communication_path is not None:
+				self.sanity_printing(f"CollectWSNData: Calling data TX at {self.communication_path} for {self.node_ID}@{self.node_hostname}")
+				try:
+					child = sb.Popen([self.communication_path, str(self.node_hostname)], stdout=sb.DEVNULL)
+					holder.add_process(child)
+					child.communicate()[0]
+					rc = child.returncode
+				except Exception:
+					self.sanity_printing("ERROR: Subprocess failed to open comminication protocol. Please verify file integrity.")
+			else:
+				self.sanity_printing("ERROR: No communication protocol set. Please override default comm_path value when initializing.")
+		
+		self.end = time.time()
+		self.time = self.end-self.start
+		# Set complete-flag, rejoin
+		self.collect_complete.set()
+
+		# If return on comms process was successful, set success-flag
+		if rc == 0:
+			self.collect_success.set()
+			self.sanity_printing(f"Successfully collected data, time: {self.time}")
+		# else, leave success-flag unset
+		else:
+			self.sanity_printing("Failed to collect from node " + str(self.node_ID))
+
+	def update(self):
+		self.timer += 1
+		if self.timer >= 10:
+			# Resend command
+			goto_position_target_local_enu(self.east, self.north, self.up, self.vehicle)
+			
+			# Did comms fail..?
+			if self.collect_complete.is_set() and not self.collect_success.is_set():
+				self.collect_complete.clear()
+				self.collect_success.clear()
+				self.thread = Thread(target=self.launchCollection)
+				self.thread.start()
+				holder.add_thread(self.thread)
+				return f"CollectNMove node = {self.node_ID}:({self.east}, {self.north}, {self.up}), move position = ({self.mv_east}, {self.mv_north}, {self.mv_up})"
+		else:
+			time.sleep(0.1)
+
+	def is_done(self):
+		target_dist = abs(math.sqrt(
+			(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+			(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+			(self.vehicle.location.local_frame.down + self.up) ** 2))
+		
+		if target_dist < self.tolerance and self.collect_complete.is_set():
 			if self.thread is not None:
 				self.thread.join()
 			return True
