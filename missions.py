@@ -163,7 +163,7 @@ class Mission(object):
 	def sanity_print(self, str):
 		time_now = time.time()
 		with open(self.log_file_str, 'a') as status_file:
-			status_file.write(f"{time_now}:{str}\n")
+			status_file.write(f"{time_now} : {str}\n")
 		print(f"{time_now}:{str}")
 
 
