@@ -164,7 +164,7 @@ class Mission(object):
 		time_now = time.time()
 		with open(self.log_file_str, 'a') as status_file:
 			status_file.write(f"{time_now} : {str}\n")
-		print(f"{time_now}:{str}")
+		print(f"{time_now} : {str}")
 
 
 #TODO: Rename? Name not intuitive
@@ -632,6 +632,18 @@ class WSNMission(Mission):
 	def update(self):
 		# Check current command
 		if self.command.is_done():
+			# Was this a collect and move command?
+			if isinstance(self.command, commands.CollectNMove):
+				if not self.retry_mode and not self.command.collection_success():
+					self.sanity_print("* Run standard CollectWSNData")
+					# Push a collect-data command
+					self.q.appendleft(commands.CollectWSNData(self.vehicle, self.command.node_ID, sim = self.simulation, node_data = [self.command.node_east, self.command.node_north, self.command.node_altitude, self.command.safeAGL, self.command.byte_to_collect, self.command.node_type, self.command.node_hostname], comm_path = defines.ORCHESTRATOR_PATH+'DroNS3/Networking/Client/collect_data', print_method = self.sanity_print))
+				elif self.retry_mode and not self.command.collection_success():
+					self.sanity_print(f"* Failed to collect data from {self.command.node_ID}")
+					self.retry_mode = False
+				else:
+					self.retry_mode = False
+
 			# Was this a data collection command?
 			if isinstance(self.command, commands.CollectWSNData):
 				if not self.retry_mode and not self.command.collection_success():
@@ -652,7 +664,7 @@ class WSNMission(Mission):
 						content += f'{self.command.node_ID}\n'
 						# Add all remaining nodes
 						for cmd in self.q:
-							if isinstance(cmd, commands.CollectWSNData):
+							if isinstance(cmd, commands.CollectWSNData) or isinstance(cmd, commands.CollectNMove):
 								content += f'{cmd.node_ID} '
 						content += '\n'
 
@@ -707,20 +719,23 @@ class WSNMission(Mission):
 						self.sanity_print(f"Error occurred while running {defines.LOCAL_PLANNER_PATH}: {e}")
 					except Exception as e:
 						self.sanity_print(f"An unexpected error occurred: {e}")
+				elif self.retry_mode and not self.command.collection_success():
+					self.sanity_print(f"* Failed to collect data from {self.command.node_ID}")
+					self.retry_mode = False
 				else:
 					self.retry_mode = False
 
 			# Update odometer
 			if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectTXData):
 				self.odometer.update('0') 
-			elif isinstance(self.command, commands.MoveToWaypoint) or isinstance(self.command, commands.ReturnHome):
+			elif isinstance(self.command, commands.MoveToWaypoint) or isinstance(self.command, commands.ReturnHome) or isinstance(self.command, commands.CollectNMove):
 				self.odometer.update('1')
 			else:
 				self.odometer.update('3')
 
 			# Current command finished, check if there is another command
 			if self.q:
-				if self.simulation and isinstance(self.q[0], commands.MoveToWaypoint):
+				if self.simulation and (isinstance(self.q[0], commands.MoveToWaypoint) or isinstance(self.q[0], commands.CollectNMove)):
 					# Do ground avoidance in simulation
 					self.groundAvoidance()
 				# Run next command
@@ -743,8 +758,8 @@ class WSNMission(Mission):
 		if not self.simulation:
 			self.sanity_print("WARNING: ground avoidance not implemented outside of simulation!")
 			return
-		elif not isinstance(self.q[0], commands.MoveToWaypoint):
-			self.sanity_print("WARNING: ground avoidance assumes next command is MoveToWaypoint! No check performed.")
+		elif not (isinstance(self.q[0], commands.MoveToWaypoint) or isinstance(self.q[0], commands.CollectNMove)):
+			self.sanity_print(f"WARNING: ground avoidance assumes next command is MoveToWaypoint! Given: {type(self.q[0])}. No check performed.")
 			return
 		self.sanity_print("Ground Avoidance Check")
 		# Incremental unit
@@ -819,6 +834,16 @@ class WSNMission(Mission):
 			elif c[0] == "5":
 				if len(c) == 2:
 					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data_path = 'data/node_info.dat', comm_path = './Networking/Client/collect_data'))
+				elif isinstance(self.q[-1], commands.MoveToWaypoint) and len(c) == 9: 
+					# Make this a move-n-talk command
+					# cmd-5 node-id x y z safe-agl bytes node-type node-ip
+					mv_east = self.q[-1].east
+					mv_north = self.q[-1].north
+					mv_up = self.q[-1].up
+					tolerance = self.q[-1].tolerance
+					self.q.pop()
+					# passed_vehicle, mv_east, mv_north, mv_up, tolerance, node, sim = False, node_data_path = 'data/node_data.dat', comm_path = defines.ORCHESTRATOR_PATH+'DroNS3/Networking/Client/collect_data', node_data = None, print_method = None
+					self.q.append(commands.CollectNMove(self.vehicle, mv_east, mv_north, mv_up, tolerance, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = defines.ORCHESTRATOR_PATH+'DroNS3/Networking/Client/collect_data', print_method = self.sanity_print))
 				elif len(c) == 9: # cmd-5 node-id x y z safe-agl bytes node-type node-ip
 					self.q.append(commands.CollectWSNData(self.vehicle, int(c[1]), sim = self.simulation, node_data = [float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7]), c[8]], comm_path = defines.ORCHESTRATOR_PATH+'DroNS3/Networking/Client/collect_data', print_method = self.sanity_print))
 				else:
