@@ -584,8 +584,6 @@ class CollectData(Command):
 	def collection_success(self):
 		return self.collect_success.is_set()
 
-
-
 # Run data collection script
 class CollectWSNData(Command):
 	# Collect data from node, with node communication range node_range (for simulation)
@@ -718,13 +716,6 @@ class CollectWSNData(Command):
 		
 	def collection_success(self):
 		return self.collect_success.is_set()
-
-
-
-
-
-
-
 
 
 # Run data collection script
@@ -866,6 +857,15 @@ class CollectNMove(Command):
 		else:
 			time.sleep(0.1)
 
+	def stopped(self):
+		target_dist = abs(math.sqrt(
+			(self.vehicle.location.local_frame.north - self.north) ** 2 + 
+			(self.vehicle.location.local_frame.east - self.east) ** 2 + 
+			(self.vehicle.location.local_frame.down + self.up) ** 2))
+		
+		if target_dist < self.tolerance:
+			return True
+
 	def is_done(self):
 		target_dist = abs(math.sqrt(
 			(self.vehicle.location.local_frame.north - self.north) ** 2 + 
@@ -885,10 +885,6 @@ class CollectNMove(Command):
 		
 	def collection_success(self):
 		return self.collect_success.is_set()
-
-
-
-
 
 
 # Run data collection script

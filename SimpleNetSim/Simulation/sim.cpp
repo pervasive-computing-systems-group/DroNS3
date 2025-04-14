@@ -19,7 +19,8 @@ static const double k_data_1[] = {8.055053731672167, 13.095538470432244, 17.3618
 static const double lambda_data_1[] = {5.192666699797578, 5.038390674565392, 4.858697263620757, 3.9344934766315793, 2.7642056298343194, 1.6213144364702052, 0.46840007312263227, 0.01};
 
 static const double max_rate[] = {5.4, 4.9};
-static const double min_rate[] = {0.4, 0.75};
+//static const double min_rate[] = {0.4, 0.75};
+static const double min_rate[] = {0.2, 0.4};
 
 int main(int argc, char *argv[]) {
 	// Vectors with field data

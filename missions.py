@@ -627,11 +627,31 @@ class WSNMission(Mission):
 
 		self.odometer = odometry.Odometer(self.vehicle)
 		self.odometer.update('3')		#run first measurement
+        # Note when the last update was...
+		self.last_update = time.time()
 
 	# Periodically called to check command status/is-done
 	def update(self):
-		# Check current command
+		current_time = time.time()
+		dt = current_time - self.last_update
+		if dt > 1.0:
+			# Update odometer
+			if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectTXData):
+				self.odometer.update('0') 
+			elif isinstance(self.command, commands.MoveToWaypoint) or isinstance(self.command, commands.ReturnHome) or isinstance(self.command, commands.CollectNMove) or isinstance(self.command, commands.PassWaypoint):
+				self.odometer.update('1')
+			else:
+				self.odometer.update('3')
+			self.last_update = current_time
 		if self.command.is_done():
+			# # Update odometer
+			# if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectTXData):
+			# 	self.odometer.update('0') 
+			# elif isinstance(self.command, commands.MoveToWaypoint) or isinstance(self.command, commands.ReturnHome) or isinstance(self.command, commands.CollectNMove) or isinstance(self.command, commands.PassWaypoint):
+			# 	self.odometer.update('1')
+			# else:
+			# 	self.odometer.update('3')
+
 			# Was this a collect and move command?
 			if isinstance(self.command, commands.CollectNMove):
 				if not self.retry_mode and not self.command.collection_success():
@@ -724,14 +744,6 @@ class WSNMission(Mission):
 					self.retry_mode = False
 				else:
 					self.retry_mode = False
-
-			# Update odometer
-			if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectTXData):
-				self.odometer.update('0') 
-			elif isinstance(self.command, commands.MoveToWaypoint) or isinstance(self.command, commands.ReturnHome) or isinstance(self.command, commands.CollectNMove):
-				self.odometer.update('1')
-			else:
-				self.odometer.update('3')
 
 			# Current command finished, check if there is another command
 			if self.q:

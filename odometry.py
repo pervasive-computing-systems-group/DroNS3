@@ -21,30 +21,34 @@ class Odometer(object):
         # Calculate dt
         current_time = time.time()
         dt = current_time - self.last_time
-        # Calculate displacement
-        displacement = self.displacement_finder()
+        if(dt >= 0.5):
+            # Calculate displacement
+            displacement = self.displacement_finder()
 
-        # Did we move?
-        if displacement > 1:
-            # Is this the first speed measurement?
-            if self.speed_count == 0:
-                # Set first speed
-                self.average_speed = displacement/dt
-                self.speed_count += 1
+            # Did we move?
+            if displacement > 1:
+                flag = 1
+                # Is this the first speed measurement?
+                if self.speed_count == 0:
+                    # Set first speed
+                    self.average_speed = displacement/dt
+                    self.speed_count += 1
+                else:
+                    speed = displacement/dt
+                    self.speed_count += 1
+                    self.average_speed += (speed - self.average_speed) / self.speed_count
             else:
-                speed = displacement/dt
-                self.speed_count += 1
-                self.average_speed += (speed - self.average_speed) / self.speed_count
+                flag = 0
 
-        # Update last position to current position
-        self.last_north = self.vehicle.location.local_frame.north
-        self.last_east = self.vehicle.location.local_frame.east
-        self.last_down = self.vehicle.location.local_frame.down
-        # Update time
-        self.last_time = current_time
+            # Update last position to current position
+            self.last_north = self.vehicle.location.local_frame.north
+            self.last_east = self.vehicle.location.local_frame.east
+            self.last_down = self.vehicle.location.local_frame.down
+            # Update time
+            self.last_time = current_time
 
-        # append to list of measurements
-        self.odometry_list.append([dt, displacement, flag])
+            # append to list of measurements
+            self.odometry_list.append([dt, displacement, flag])
 
     # Finds displacement between last position and current position
     def displacement_finder(self) -> float:
