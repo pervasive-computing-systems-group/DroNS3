@@ -5,6 +5,7 @@ import math
 class Odometer(object):
     def __init__(self, vehicle) -> None:
         self.average_speed = 10
+        self.instantaneous_speed = 0
         self.speed_count = 0
         # Last positions for calculating displacement every update
         self.last_north = 0
@@ -37,8 +38,10 @@ class Odometer(object):
                     speed = displacement/dt
                     self.speed_count += 1
                     self.average_speed += (speed - self.average_speed) / self.speed_count
+                self.instantaneous_speed = displacement/dt
             else:
                 flag = 0
+                self.instantaneous_speed = 0.0
 
             # Update last position to current position
             self.last_north = self.vehicle.location.local_frame.north

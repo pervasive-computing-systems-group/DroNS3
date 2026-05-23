@@ -627,13 +627,19 @@ class WSNMission(Mission):
 
 		self.odometer = odometry.Odometer(self.vehicle)
 		self.odometer.update('3')		#run first measurement
-        # Note when the last update was...
+		# Note when the last update was...
 		self.last_update = time.time()
+
+		# Initialize variables for Baseline Energy Tracking
+		self.total_energy_used = 0.0
+		self.energy_aborted = False
+
 
 	# Periodically called to check command status/is-done
 	def update(self):
 		current_time = time.time()
 		dt = current_time - self.last_update
+
 		if dt > 1.0:
 			# Update odometer
 			if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectTXData):
@@ -643,6 +649,54 @@ class WSNMission(Mission):
 			else:
 				self.odometer.update('3')
 			self.last_update = current_time
+
+			if defines.ENABLE_RTB:
+				# Real-time energy tracking and abort sequence
+				current_v = self.odometer.instantaneous_speed
+				power = (0.07)*current_v**3 + (0.0391)*current_v**2 + (-13.196)*current_v + (390.95)
+				self.total_energy_used += (power * dt)
+				
+				# Check against SAFE_BATTERY (150000 * 0.95 = 142500)
+				if self.total_energy_used >= (defines.TOTAL_BATTERY*(1-defines.BATTERY_BUFFER)) and not self.energy_aborted:
+					self.sanity_print(f"CRITICAL: Battery limit reached ({self.total_energy_used:.2f} J). Aborting mission.")
+					self.energy_aborted = True
+					
+					# Identify unvisited sensors (current target + all queued targets)
+					unvisited = []
+					if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectNMove):
+						unvisited.append(str(self.command.node_ID))
+
+					for cmd in self.q:
+						if isinstance(cmd, commands.CollectWSNData) or isinstance(cmd, commands.CollectNMove):
+							unvisited.append(str(cmd.node_ID))
+					
+					# Are there unvisited sensors?
+					if len(unvisited) > 0:
+						# Save missed IDs for Run_Framework.py to read
+						with open(defines.SIM_OUT_PATH+"unvisited_sensors.txt", "w") as f:
+							f.write("\n".join(unvisited))
+					
+					# Clear remaining plan and issue Return to Launch commands
+					self.q.clear()
+					
+					# Send RTB command
+					self.q.append(commands.ReturnHome(10.0, self.vehicle, debug=self.debug))
+
+					# Is this the sim?
+					if self.simulation:
+						# Land when we get there...
+						self.q.append(commands.Land(self.vehicle, debug=self.debug))
+						# Do ground avoidance
+						self.groundAvoidance()
+					
+					# Immediately trigger the abort command
+					self.command = self.q.popleft()
+					begin_feedback = self.command.begin()
+					self.sanity_print(begin_feedback)
+					
+					self.last_update = current_time
+					return
+
 		if self.command.is_done():
 			# # Update odometer
 			# if isinstance(self.command, commands.CollectWSNData) or isinstance(self.command, commands.CollectTXData):
