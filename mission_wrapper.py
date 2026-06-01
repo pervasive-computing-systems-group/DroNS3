@@ -24,7 +24,7 @@ class Process_Thread_Holder(object):
 
 class Wrapper(object):
 
-    def __init__(self, is_sim=True) -> None:
+    def __init__(self, is_sim=True, ID = 0) -> None:
 
         self.pth = Process_Thread_Holder()
         self.in_simulation = is_sim
@@ -41,7 +41,8 @@ class Wrapper(object):
         # Connect to pixhawk over UART or simulation at localhost
         if (self.in_simulation):
             print("Connect to simulation vehicle")
-            self.vehicle = connect('localhost:14550', wait_ready=True)
+            port = 14550 + ID*10
+            self.vehicle = connect(f'localhost:{port}', wait_ready=True)
         else:
             print("Connecting to Pixhawk Cube")
             self.vehicle = connect('/dev/ttyAMA0', wait_ready=True, baud=57600)
