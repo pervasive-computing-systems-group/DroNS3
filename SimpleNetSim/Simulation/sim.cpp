@@ -57,6 +57,10 @@ int main(int argc, char *argv[]) {
 	int node_type = 1;
 	bool short_timeout = false;
 	double k, lambda;
+	
+	// Gaussian noise
+	double fNoiseFactor = 0.0;
+	bool bHasNoise = false;
 
 	// Verify user input
 	if(argc == 3) {
@@ -77,8 +81,17 @@ int main(int argc, char *argv[]) {
 		node_type = atoi(argv[3]);
 		short_timeout = atoi(argv[4]);
 	}
+	else if(argc == 6) {
+		// Extract 5 arguments
+		distance = atof(argv[1]);
+		bytes = atoi(argv[2]);
+		node_type = atoi(argv[3]);
+		short_timeout = atoi(argv[4]);
+		fNoiseFactor = atof(argv[5]);
+		bHasNoise = (fNoiseFactor > 0.0);
+	}
 	else {
-		fprintf(stderr, "Received %d args, expected 2.\nExpected use:\t./sim <distance> <bytes-sent> [node-type] [short-timeout]\n\n", (argc-1));
+		fprintf(stderr, "Received %d args, expected 2.\nExpected use:\t./sim <distance> <bytes-sent> [node-type] [short-timeout] [noise-factor]\n\n", (argc-1));
 		exit(1);
 	}
 
@@ -161,6 +174,21 @@ int main(int argc, char *argv[]) {
 	}
 
 	double tx_rate = distribution(generator);
+	
+	// Apply Additive White Gaussian Noise (AWGN) penalty to the throughput
+	if(bHasNoise) {
+		std::normal_distribution<double> distNormal(0.0, fNoiseFactor);
+		
+		// We use the absolute value because interference always represents 
+		// an additive increase to the noise floor, which strictly penalizes the SNR.
+		double fNoisePenalty = std::abs(distNormal(generator));
+		
+		tx_rate -= fNoisePenalty;
+		
+		if(DEBUG) {
+			printf("Gaussian noise penalty applied: -%f MB/s\n", fNoisePenalty);
+		}
+	}
 
 	// Ensure that we can actually talk to the node...
 	if(tx_rate >= min_rate[node_type]) {

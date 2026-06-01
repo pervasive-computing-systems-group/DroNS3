@@ -10,9 +10,11 @@ SNS_PATH = ORCHESTRATOR_PATH+"DroNS3/SimpleNetSim/Simulation/sim"
 LOCAL_PLANNER_PATH = ORCHESTRATOR_PATH+"MissionPlanner/build/local-planner"
 # Path of sim-output folder from the root directory (i.e. "/home/...")
 SIM_OUT_PATH = ORCHESTRATOR_PATH+"sim_out/"
+# Path to optional file with noise data
+NOISE_INPUT = ORCHESTRATOR_PATH+"plan_online/noise"
 
 ## Other Holistic planner slop
-ENABLE_RTB = True
+ENABLE_RTB = False
 BATTERY_BUFFER = 0.05
 TOTAL_BATTERY = 150000
 
