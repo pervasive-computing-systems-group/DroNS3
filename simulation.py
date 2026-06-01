@@ -33,8 +33,11 @@ class Custom_Command(commands.Command):
 
 
 if __name__ == '__main__':
-	w = Wrapper()
 	if len(sys.argv) > 1:
+		id = 0
+		if len(sys.argv) > 2:
+			id = int(sys.argv[2])
+		w = Wrapper(ID=id)
 		w.start_mission(mission=missions.WSNMission(w.vehicle, mission_file=sys.argv[1], debug = True, is_sim=True))
 	else:
 		print("Expected plan as argument!")

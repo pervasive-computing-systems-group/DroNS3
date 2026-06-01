@@ -14,6 +14,7 @@ import sys
 import os
 import generate_data
 import random
+from pathlib import Path
 
 '''
 TODO: Overall, refactor command init() function (not the basic __init__() function) to a different name. Very confusing currently, 
@@ -667,10 +668,16 @@ class CollectWSNData(Command):
 				(self.vehicle.location.local_frame.north - self.north) ** 2 + 
 				(self.vehicle.location.local_frame.east - self.east) ** 2 + 
 				(self.vehicle.location.local_frame.down + self.altitude) ** 2))
-			self.sanity_printing(f"CollectWSNData: Simulating data TX at {dist_to_node}, expecting {self.byte_to_collect} bytes")
+			# Check for noise data
+			noise = "-1.0"
+			file_path = Path(defines.NOISE_INPUT)
+			if file_path.is_file():
+				with open(defines.NOISE_INPUT, "r") as f:
+					noise = f.readline().strip()
+			self.sanity_printing(f"CollectWSNData: Simulating data TX at {dist_to_node}, expecting {self.byte_to_collect} bytes, noise sigma {noise}")
 			# Collect data using SimpleNetSim
 			# ./sim <distance> <bytes-sent> [node-type] [short-timeout]
-			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect), str(self.node_type)],  stdout=sb.DEVNULL)
+			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect), str(self.node_type), "0", noise],  stdout=sb.DEVNULL)
 			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
@@ -807,9 +814,15 @@ class CollectNMove(Command):
 				(self.vehicle.location.local_frame.east - self.node_east) ** 2 + 
 				(self.vehicle.location.local_frame.down + self.node_altitude) ** 2))
 			self.sanity_printing(f"CollectNMove: Simulating data TX at {dist_to_node}, expecting {self.byte_to_collect} bytes")
+			# Check for noise data
+			noise = "-1.0"
+			file_path = Path(defines.NOISE_INPUT)
+			if file_path.is_file():
+				with open(defines.NOISE_INPUT, "r") as f:
+					noise = f.readline().strip()
 			# Collect data using SimpleNetSim
 			# ./sim <distance> <bytes-sent> [node-type] [short-timeout]
-			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect), str(self.node_type), "1"],  stdout=sb.DEVNULL)
+			child = sb.Popen([defines.SNS_PATH, str(dist_to_node), str(self.byte_to_collect), str(self.node_type), "1", noise],  stdout=sb.DEVNULL)
 			holder.add_process(child)
 			child.communicate()[0]
 			rc = child.returncode
